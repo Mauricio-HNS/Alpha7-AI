@@ -165,6 +165,24 @@ def test_semantic_search_ignores_embeddings_from_another_model() -> None:
     assert embedder.calls[-1] == "consulta"
 
 
+def test_backfill_reembeds_rows_from_another_model() -> None:
+    embedder = FakeEmbedder({"experiência antiga": [0.0, 1.0]})
+    memory = SQLiteMemory(db_path=":memory:")
+    exp_id = memory.store_experience(Experience(task="experiência antiga"))
+    memory._conn.execute(
+        "UPDATE experiences SET embedding = ?, embedding_model = ? WHERE id = ?",
+        ("[1.0, 0.0]", "old-model", exp_id),
+    )
+    memory._conn.commit()
+    memory.embedder = embedder
+
+    assert memory.backfill_embeddings() == 1
+    row = memory._conn.execute("SELECT embedding, embedding_model FROM experiences WHERE id = ?", (exp_id,)).fetchone()
+    assert row["embedding"] == "[0.0, 1.0]"
+    assert row["embedding_model"] == "fake-bge-m3"
+    assert embedder.calls == ["experiência antiga"]
+
+
 def test_semantic_search_skips_malformed_embedding_and_uses_valid_rows() -> None:
     vectors = {
         "válida": [1.0, 0.0],
