@@ -7,7 +7,16 @@ comparar com soluções prontas.
 
 Este projeto evolui em estágios pequenos e versionados. Cada estágio
 precisa funcionar, ter testes, ter documentação e servir de base para o
-próximo. Veja o roadmap completo no final deste README.
+próximo.
+
+> **Para o estado real e atualizado do projeto, decisões arquiteturais e
+> o próximo passo planejado, veja [`PROJECT_CONTEXT.md`](./PROJECT_CONTEXT.md).**
+> **Para as regras de trabalho de qualquer agente de programação (Claude,
+> Codex, etc.) neste repositório, veja [`AGENTS.md`](./AGENTS.md).**
+>
+> Esses dois arquivos, junto com o histórico do Git, são a fonte de
+> verdade do projeto — uma nova sessão de IA deve conseguir continuar o
+> trabalho lendo apenas eles, sem depender de conversas anteriores.
 
 ## Estágio atual: v0.2 (incremento 1/2) — Experience-based memory
 
