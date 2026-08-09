@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Run the acceptance gate for the documented milestone.
-
-A stage is promoted only when an explicit gate exists for that stage. This
-prevents a green generic test suite from falsely marking future milestones as
-complete before their acceptance criteria are defined and tested.
-"""
+"""Run the acceptance gate for the documented milestone."""
 from __future__ import annotations
 
 import re
@@ -14,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTEXT = ROOT / "PROJECT_CONTEXT.md"
-SUPPORTED_GATES = {"v0.1", "v0.2", "v0.3"}
+SUPPORTED_GATES = {"v0.1", "v0.2", "v0.3", "v0.4"}
 ORDER = ["v0.1", "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7", "v0.8", "v0.9", "v1.0"]
 
 
@@ -53,11 +48,9 @@ def main() -> int:
         print("Add the stage's real acceptance checks before allowing automatic promotion.")
         return 2
 
-    # Every supported stage requires the complete suite to be green.
     run(sys.executable, "-m", "pytest", "-v")
 
     if stage == "v0.3":
-        # The workflow starts Ollama and loads BGE-M3 before this check.
         run(
             "curl",
             "--fail",
@@ -69,6 +62,9 @@ def main() -> int:
             "-d",
             '{"model":"bge-m3:latest","input":"zero-agent stage gate"}',
         )
+
+    if stage == "v0.4":
+        run(sys.executable, "-m", "pytest", "-v", "tests/test_rag.py")
 
     new_text = advance_context(text, stage)
     if new_text != text:
