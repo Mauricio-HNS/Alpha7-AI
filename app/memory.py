@@ -221,6 +221,7 @@ class SQLiteMemory:
             return self._keyword_search(query, limit)
 
         scored: list[tuple[float, sqlite3.Row]] = []
+        min_score = settings.semantic_min_score
         for row in rows:
             try:
                 vector = json.loads(row["embedding"])
@@ -228,7 +229,7 @@ class SQLiteMemory:
                     raise ValueError("embedding não é uma lista")
                 vector = [float(value) for value in vector]
                 score = self._cosine_similarity(query_vector, vector)
-                if score > 0:
+                if score >= min_score:
                     scored.append((score, row))
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
                 logger.warning("MEMORY.semantic_search | embedding inválido id=%s: %s", row["id"], exc)
@@ -251,8 +252,8 @@ class SQLiteMemory:
                     if len(results) >= limit:
                         break
 
-        logger.info("MEMORY.semantic_search | query=%r candidates=%d returned=%d",
-                    query, len(rows), len(results))
+        logger.info("MEMORY.semantic_search | query=%r candidates=%d returned=%d min_score=%.3f",
+                    query, len(rows), len(results), min_score)
         return results
 
     @staticmethod
