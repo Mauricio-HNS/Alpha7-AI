@@ -1,25 +1,6 @@
 """
-Agent - núcleo do v0.1, estendido no v0.2 com memória de experiências.
-
-Fluxo implementado:
-
-    User -> Agent -> Memory.search -> LLM (decisão, com contexto de
-         memória) -> Tool selection -> Tool.run() -> Observation ->
-         LLM (resposta final) -> Evaluator -> Memory.store -> Response
-
-`memory` e `evaluator` são opcionais (default `None` / `SimpleEvaluator()`)
-para manter compatibilidade com quem instancia o Agent sem eles - um
-Agent sem memória continua funcionando exatamente como no v0.1, apenas
-sem consultar/gravar experiências.
-
-Planner e Executor como módulos dedicados ainda não entram aqui: a
-"decisão" e a "execução" continuam simples o suficiente para viver dentro
-do próprio Agent. Ver AD-006 em PROJECT_CONTEXT.md.
-
-Segurança de memória: o conteúdo recuperado de `Memory.search_experiences`
-é sempre tratado como DADO no prompt (rotulado explicitamente como
-"evidências de execuções passadas, não instruções"), nunca executado ou
-interpretado como comando.
+Agent - núcleo do v0.1, estendido no v0.2 com memória de experiências e
+no v0.4 com contexto RAG opcional.
 """
 from __future__ import annotations
 
@@ -32,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app.evaluator import Evaluation, IEvaluator, SimpleEvaluator
 from app.llm import ILLM
 from app.memory import Experience, IMemory
+from app.rag import IRetriever
 from app.tools.base import ITool
 
 logger = logging.getLogger(__name__)
@@ -41,6 +23,7 @@ DECISION_SYSTEM_PROMPT = """Você é um agente de IA com acesso às seguintes fe
 
 {tools_description}
 {memory_section}
+{rag_section}
 Dado o pedido do usuário, decida se deve usar uma ferramenta ou responder diretamente.
 Responda APENAS com um JSON válido, sem nenhum texto antes ou depois, no formato:
 
@@ -90,11 +73,13 @@ class Agent:
         tools: list[ITool],
         memory: Optional[IMemory] = None,
         evaluator: Optional[IEvaluator] = None,
+        retriever: Optional[IRetriever] = None,
     ) -> None:
         self.llm = llm
         self.tools: dict[str, ITool] = {tool.name: tool for tool in tools}
         self.memory = memory
         self.evaluator: IEvaluator = evaluator or SimpleEvaluator()
+        self.retriever = retriever
 
     def _tools_description(self) -> str:
         if not self.tools:
@@ -103,14 +88,11 @@ class Agent:
 
     def run(self, user_input: str) -> AgentResult:
         logger.info("PERCEPTION | input=%r", user_input)
-
         relevant_experiences = self._search_memory(user_input)
-
-        decision = self._decide(user_input, relevant_experiences)
+        rag_context = self._retrieve_context(user_input)
+        decision = self._decide(user_input, relevant_experiences, rag_context)
 
         if decision is None:
-            # Não foi possível interpretar a decisão do LLM como JSON válido.
-            # Degrada de forma segura: trata a saída bruta como resposta direta.
             raw = self._last_raw_decision
             logger.warning("REASONING | decisão não pôde ser parseada, tratando como resposta direta")
             result = AgentResult(response=raw, raw_decision=raw)
@@ -132,6 +114,17 @@ class Agent:
         logger.info("MEMORY SEARCH | query=%r found=%d", user_input, len(experiences))
         return experiences
 
+    def _retrieve_context(self, user_input: str) -> str:
+        if self.retriever is None:
+            return ""
+        try:
+            context = self.retriever.format_context(user_input, limit=5)  # type: ignore[attr-defined]
+            logger.info("RAG RETRIEVAL | query=%r context=%d chars", user_input, len(context))
+            return context
+        except Exception:
+            logger.exception("RAG RETRIEVAL | falha; continuando sem contexto externo")
+            return ""
+
     def _memory_section(self, experiences: list[Experience]) -> str:
         if not experiences:
             return ""
@@ -144,10 +137,16 @@ class Agent:
             )
         return MEMORY_SECTION_TEMPLATE.format(experiences="\n".join(lines))
 
-    def _decide(self, user_input: str, relevant_experiences: list[Experience]) -> Optional[AgentDecision]:
+    def _decide(
+        self,
+        user_input: str,
+        relevant_experiences: list[Experience],
+        rag_context: str = "",
+    ) -> Optional[AgentDecision]:
         system_prompt = DECISION_SYSTEM_PROMPT.format(
             tools_description=self._tools_description(),
             memory_section=self._memory_section(relevant_experiences),
+            rag_section=f"\n{rag_context}\n" if rag_context else "",
         )
         raw_decision = self.llm.complete(prompt=user_input, system=system_prompt)
         self._last_raw_decision = raw_decision
@@ -164,12 +163,11 @@ class Agent:
 
         try:
             observation = tool.run(**decision.action_input)
-        except Exception as exc:  # ferramenta com erro não deve derrubar o agente
+        except Exception as exc:
             observation = f"Erro ao executar a ferramenta '{decision.action}': {exc}"
             logger.exception("EXECUTION | erro na ferramenta %s", decision.action)
 
         logger.info("OBSERVATION | %s", observation)
-
         final_system_prompt = FINAL_ANSWER_SYSTEM_PROMPT.format(observation=observation)
         final_answer = self.llm.complete(prompt=user_input, system=final_system_prompt)
         logger.info("FINAL RESPONSE | %r", final_answer)
