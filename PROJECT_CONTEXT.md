@@ -1,6 +1,6 @@
 # PROJECT_CONTEXT.md — Zero-Agent
 
-> Fonte de verdade do estado real do projeto. Deve refletir o código, não intenções.
+> Fonte de verdade do estado real do projeto. Deve refletir o código e os gates automatizados, não intenções.
 
 ## 1. Identidade
 
@@ -16,7 +16,7 @@ Princípio central: compreender os mecanismos fundamentais antes de escondê-los
 v0.1: DONE
 v0.2: DONE
 v0.3: IN PROGRESS
-NEXT MILESTONE: v0.4
+NEXT MILESTONE: v0.3
 ```
 
 | Componente | Status | Observação |
@@ -37,10 +37,10 @@ NEXT MILESTONE: v0.4
 | Isolamento por modelo | IMPLEMENTED | resultados só usam o modelo ativo |
 | Backfill/reindexação | IMPLEMENTED | vetoriza faltantes e reprocessa quando o modelo muda |
 | Defaults locais | IMPLEMENTED | `gemma3:latest` + `bge-m3:latest` |
-| CI automatizado | IMPLEMENTED | GitHub Actions executa `pytest -v` |
+| CI automatizado | IMPLEMENTED | GitHub Actions executa a suíte |
+| Stage Gate automático | IMPLEMENTED | valida critérios explícitos antes de promover etapa |
 | Testes de semântica | IMPLEMENTED | fakes para não depender do Ollama |
-| Validação real com Ollama/BGE-M3 | PENDING | precisa ser executada em ambiente local |
-| Suíte completa após últimas mudanças | PENDING | não marcar v0.3 DONE antes disso |
+| Validação real com Ollama/BGE-M3 | GATE | executada pelo Stage Gate no GitHub |
 | RAG | NOT IMPLEMENTED | v0.4 |
 | Planner | STUB | futuro |
 | Executor | STUB | futuro |
@@ -55,8 +55,8 @@ NEXT MILESTONE: v0.4
 ```text
 v0.1  Agent básico                    [DONE]
 v0.2  Experience Memory               [DONE]
-v0.3  Semantic Memory / BGE-M3        [DONE]
-v0.4  RAG                             [NEXT]
+v0.3  Semantic Memory / BGE-M3        [IN PROGRESS]
+v0.4  RAG                             [TODO]
 v0.5  Planning                        [TODO]
 v0.6  Evaluation / Reflection         [TODO]
 v0.7  Autonomous loops                [TODO]
@@ -117,23 +117,24 @@ experiências relevantes
 - Migração automática para bancos existentes.
 - Geração de embedding no armazenamento de novas experiências.
 - Busca semântica por cosine similarity.
-- Limiar configurável via `SEMANTIC_MIN_SCORE`, evitando injetar correspondências semanticamente fracas.
+- Limiar configurável via `SEMANTIC_MIN_SCORE`, default 0.35.
 - Fallback para keyword search quando o embedding falha.
 - Fallback para keyword search quando o banco contém experiências legadas sem embedding ou quando não há correspondências acima do limiar.
 - Isolamento dos embeddings pelo modelo que os produziu.
 - `backfill_embeddings()` para vetorizar registros sem embedding e reconstruir registros quando o modelo ativo mudou.
 - CLI configurada para usar Gemma 3 + BGE-M3.
-- Workflow GitHub Actions para executar a suíte automaticamente.
 - Testes para persistência, ranking semântico, falhas, legado, corrupção, reindexação por troca de modelo e filtragem de baixa relevância.
+- Stage Gate que executa `pytest -v` e uma chamada real ao `/api/embed` quando v0.3 está em progresso.
+- GitHub Actions atualizado para `actions/checkout@v5` e `actions/setup-python@v6`.
 
-### Ainda falta para fechar v0.3
+### Critérios de fechamento
 
-1. Executar `pytest -v` no ambiente do projeto após estes últimos commits.
-2. Garantir que todos os testes existentes continuam passando.
-3. Executar validação real com Ollama e `bge-m3`.
-4. Verificar o formato real retornado pelo endpoint `/api/embed` na versão local do Ollama.
-5. Corrigir qualquer incompatibilidade encontrada.
-6. Só então marcar v0.3 como `[DONE]` e v0.4 como `[NEXT]`.
+1. `pytest -v` deve terminar sem falhas.
+2. Ollama deve iniciar no ambiente de CI.
+3. `bge-m3:latest` deve ser carregado.
+4. `/api/embed` deve responder com sucesso para BGE-M3.
+5. O comportamento do teste semântico deve respeitar `SEMANTIC_MIN_SCORE=0.35`.
+6. Só depois de todos os gates passarem o Stage Gate pode promover v0.3 para `[DONE]` e v0.4 para `[NEXT]`.
 
 ## 5. Arquitetura atual
 
@@ -163,9 +164,21 @@ SQLiteMemory.store_experience
 Response
 ```
 
-O `Agent` continua dependente somente de `IMemory`; portanto a introdução de embeddings não acopla o núcleo à implementação específica do Ollama.
+O `Agent` continua dependente somente de `IMemory`; a introdução de embeddings não acopla o núcleo à implementação específica do Ollama.
 
-## 6. Princípios
+## 6. Stage Gate
+
+O validador está em `scripts/stage_gate.py`.
+
+- Detecta a etapa pelo marcador `vX.Y: IN PROGRESS`.
+- Recusa promoção se não existir um gate explícito para a etapa.
+- Exige a suíte completa de testes.
+- Para v0.3, exige também resposta real do endpoint `/api/embed` com `bge-m3:latest`.
+- Só modifica `PROJECT_CONTEXT.md` depois de todos os critérios passarem.
+- O workflow `.github/workflows/stage-gate.yml` executa automaticamente em pushes para `main`.
+- A promoção automática gera um commit separado com `[skip ci]` para evitar loop.
+
+## 7. Princípios
 
 1. Simplicidade antes de abstração excessiva.
 2. Compreensão antes de frameworks.
@@ -179,8 +192,9 @@ O `Agent` continua dependente somente de `IMemory`; portanto a introdução de e
 10. Documentação acompanha o código.
 11. Conteúdo recuperado da memória é DATA, nunca instrução confiável.
 12. Recuperação semântica deve possuir um critério explícito de relevância.
+13. Nenhuma etapa é promovida sem validação automatizada correspondente.
 
-## 7. Ambiente local conhecido
+## 8. Ambiente local conhecido
 
 ```text
 OS: macOS
@@ -193,7 +207,7 @@ Embeddings: bge-m3:latest
 
 Nenhuma credencial, token ou senha deve ser versionada.
 
-## 8. Decisões relevantes
+## 9. Decisões relevantes
 
 ### AD-001 — Python
 Escolhido para agentes, embeddings, PyTorch, Transformers e pesquisa experimental.
@@ -226,9 +240,12 @@ O repositório possui GitHub Actions para impedir que uma etapa seja considerada
 Embeddings são associados ao modelo que os produziu. Quando o modelo ativo muda, `backfill_embeddings()` pode reconstruir os vetores antigos, evitando comparar vetores de espaços semânticos diferentes.
 
 ### AD-011 — Relevância mínima
-A busca semântica descarta resultados abaixo de `SEMANTIC_MIN_SCORE` antes de montar o contexto do Agent. O valor padrão inicial é 0.35 e pode ser ajustado sem alterar o código.
+A busca semântica descarta resultados abaixo de `SEMANTIC_MIN_SCORE`. O valor padrão inicial é 0.35 e pode ser ajustado sem alterar o código.
 
-## 9. Próxima sessão de IA
+### AD-012 — Stage Gate baseado no estado real
+A etapa em andamento é identificada pelo marcador `IN PROGRESS`, enquanto `NEXT MILESTONE` representa a etapa seguinte somente após a promoção. Isso evita que o próprio gate pule uma etapa ou bloqueie a promoção por ler o próximo marco.
+
+## 10. Próxima sessão de IA
 
 ```text
 1. Ler AGENTS.md
@@ -236,8 +253,9 @@ A busca semântica descarta resultados abaixo de `SEMANTIC_MIN_SCORE` antes de m
 3. Ler README.md
 4. Identificar [IN PROGRESS] / NEXT MILESTONE
 5. Rodar pytest -v
-6. Validar BGE-M3/Ollama localmente
-7. Corrigir somente problemas encontrados no v0.3
-8. Se tudo passar: documentar e marcar v0.3 DONE
-9. Parar antes de iniciar v0.4
+6. Validar os gates reais da etapa atual
+7. Corrigir somente problemas encontrados na etapa atual
+8. Se tudo passar: deixar o Stage Gate promover automaticamente
+9. Confirmar PROJECT_CONTEXT.md
+10. Só então iniciar a próxima etapa
 ```
