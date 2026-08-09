@@ -90,8 +90,8 @@ class SQLiteMemory:
 
     Without an embedder, legacy keyword search remains available. With an
     embedder, new experiences are vectorized and queries use cosine similarity.
-    Existing databases are migrated in place and legacy rows remain searchable
-    through keyword fallback until they are embedded.
+    Existing databases are migrated in place; rows without embeddings remain
+    searchable through a keyword fallback and can be backfilled explicitly.
     """
 
     def __init__(self, db_path: str = "data/memory.db", embedder: Optional[IEmbedder] = None) -> None:
@@ -156,6 +156,42 @@ class SQLiteMemory:
                     experience_id, experience.task, experience.success, embedding is not None)
         return experience_id
 
+    def backfill_embeddings(self, limit: Optional[int] = None) -> int:
+        """Embed legacy rows that do not have a vector yet.
+
+        Returns the number of rows successfully embedded. A failure for one
+        row is logged and does not prevent the remaining rows from being
+        processed.
+        """
+        if self.embedder is None:
+            return 0
+
+        sql = "SELECT * FROM experiences WHERE embedding IS NULL ORDER BY id"
+        params: tuple[Any, ...] = ()
+        if limit is not None:
+            sql += " LIMIT ?"
+            params = (limit,)
+
+        rows = self._conn.execute(sql, params).fetchall()
+        embedded_count = 0
+        model = getattr(self.embedder, "model", None)
+
+        for row in rows:
+            experience = self._row_to_experience(row)
+            try:
+                vector = self.embedder.embed(self._experience_text(experience))
+                self._conn.execute(
+                    "UPDATE experiences SET embedding = ?, embedding_model = ? WHERE id = ?",
+                    (json.dumps(vector), model, experience.id),
+                )
+                embedded_count += 1
+            except Exception:
+                logger.exception("MEMORY.backfill | falha id=%s", experience.id)
+
+        self._conn.commit()
+        logger.info("MEMORY.backfill | processed=%d embedded=%d", len(rows), embedded_count)
+        return embedded_count
+
     def get_experience(self, experience_id: int) -> Optional[Experience]:
         row = self._conn.execute("SELECT * FROM experiences WHERE id = ?", (experience_id,)).fetchone()
         return self._row_to_experience(row) if row is not None else None
@@ -181,7 +217,29 @@ class SQLiteMemory:
             vector = json.loads(row["embedding"])
             scored.append((self._cosine_similarity(query_vector, vector), row))
         scored.sort(key=lambda item: item[0], reverse=True)
-        results = [self._row_to_experience(row) for score, row in scored[:limit] if score > 0]
+
+        results: list[Experience] = []
+        seen_ids: set[int] = set()
+        for score, row in scored:
+            if score <= 0:
+                continue
+            experience = self._row_to_experience(row)
+            results.append(experience)
+            seen_ids.add(experience.id)  # type: ignore[arg-type]
+            if len(results) >= limit:
+                break
+
+        # Preserve visibility of legacy rows while they are waiting for an
+        # explicit backfill. This prevents partial migrations from hiding old
+        # experience from the agent.
+        if len(results) < limit:
+            for experience in self._keyword_search(query, limit - len(results)):
+                if experience.id not in seen_ids:
+                    results.append(experience)
+                    seen_ids.add(experience.id)  # type: ignore[arg-type]
+                    if len(results) >= limit:
+                        break
+
         logger.info("MEMORY.semantic_search | query=%r candidates=%d returned=%d",
                     query, len(rows), len(results))
         return results
