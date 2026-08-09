@@ -33,6 +33,8 @@ class Experience(BaseModel):
 
 
 class IEmbedder(Protocol):
+    model: str
+
     def embed(self, text: str) -> list[float]: ...
 
 
@@ -54,9 +56,18 @@ class OllamaEmbedder:
         response.raise_for_status()
         data = response.json()
         embeddings = data.get("embeddings")
-        if not embeddings or not isinstance(embeddings[0], list):
-            raise ValueError("Ollama não retornou um embedding válido")
-        return [float(value) for value in embeddings[0]]
+        if not isinstance(embeddings, list) or not embeddings:
+            raise ValueError("Ollama não retornou 'embeddings'")
+        vector = embeddings[0]
+        if not isinstance(vector, list) or not vector:
+            raise ValueError("Ollama não retornou um vetor de embedding válido")
+        try:
+            result = [float(value) for value in vector]
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Ollama retornou valores de embedding inválidos") from exc
+        if not all(math.isfinite(value) for value in result):
+            raise ValueError("Ollama retornou valores de embedding não finitos")
+        return result
 
 
 class IMemory(Protocol):
@@ -86,13 +97,7 @@ CREATE TABLE IF NOT EXISTS experiences (
 
 
 class SQLiteMemory:
-    """SQLite-backed memory with optional semantic vector retrieval.
-
-    Without an embedder, legacy keyword search remains available. With an
-    embedder, new experiences are vectorized and queries use cosine similarity.
-    Existing databases are migrated in place; rows without embeddings remain
-    searchable through a keyword fallback and can be backfilled explicitly.
-    """
+    """SQLite-backed memory with optional semantic vector retrieval."""
 
     def __init__(self, db_path: str = "data/memory.db", embedder: Optional[IEmbedder] = None) -> None:
         self.db_path = db_path
@@ -157,25 +162,17 @@ class SQLiteMemory:
         return experience_id
 
     def backfill_embeddings(self, limit: Optional[int] = None) -> int:
-        """Embed legacy rows that do not have a vector yet.
-
-        Returns the number of rows successfully embedded. A failure for one
-        row is logged and does not prevent the remaining rows from being
-        processed.
-        """
+        """Embed legacy rows that do not have a vector yet."""
         if self.embedder is None:
             return 0
-
         sql = "SELECT * FROM experiences WHERE embedding IS NULL ORDER BY id"
         params: tuple[Any, ...] = ()
         if limit is not None:
             sql += " LIMIT ?"
             params = (limit,)
-
         rows = self._conn.execute(sql, params).fetchall()
         embedded_count = 0
         model = getattr(self.embedder, "model", None)
-
         for row in rows:
             experience = self._row_to_experience(row)
             try:
@@ -187,7 +184,6 @@ class SQLiteMemory:
                 embedded_count += 1
             except Exception:
                 logger.exception("MEMORY.backfill | falha id=%s", experience.id)
-
         self._conn.commit()
         logger.info("MEMORY.backfill | processed=%d embedded=%d", len(rows), embedded_count)
         return embedded_count
@@ -208,30 +204,40 @@ class SQLiteMemory:
 
     def _semantic_search(self, query: str, limit: int) -> list[Experience]:
         query_vector = self.embedder.embed(query)  # type: ignore[union-attr]
-        rows = self._conn.execute("SELECT * FROM experiences WHERE embedding IS NOT NULL").fetchall()
+        model = getattr(self.embedder, "model", None)
+        if model:
+            rows = self._conn.execute(
+                "SELECT * FROM experiences WHERE embedding IS NOT NULL AND embedding_model = ?",
+                (model,),
+            ).fetchall()
+        else:
+            rows = self._conn.execute("SELECT * FROM experiences WHERE embedding IS NOT NULL").fetchall()
         if not rows:
             return self._keyword_search(query, limit)
 
         scored: list[tuple[float, sqlite3.Row]] = []
         for row in rows:
-            vector = json.loads(row["embedding"])
-            scored.append((self._cosine_similarity(query_vector, vector), row))
-        scored.sort(key=lambda item: item[0], reverse=True)
+            try:
+                vector = json.loads(row["embedding"])
+                if not isinstance(vector, list):
+                    raise ValueError("embedding não é uma lista")
+                vector = [float(value) for value in vector]
+                score = self._cosine_similarity(query_vector, vector)
+                if score > 0:
+                    scored.append((score, row))
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                logger.warning("MEMORY.semantic_search | embedding inválido id=%s: %s", row["id"], exc)
 
+        scored.sort(key=lambda item: item[0], reverse=True)
         results: list[Experience] = []
         seen_ids: set[int] = set()
-        for score, row in scored:
-            if score <= 0:
-                continue
+        for _, row in scored:
             experience = self._row_to_experience(row)
             results.append(experience)
             seen_ids.add(experience.id)  # type: ignore[arg-type]
             if len(results) >= limit:
                 break
 
-        # Preserve visibility of legacy rows while they are waiting for an
-        # explicit backfill. This prevents partial migrations from hiding old
-        # experience from the agent.
         if len(results) < limit:
             for experience in self._keyword_search(query, limit - len(results)):
                 if experience.id not in seen_ids:
