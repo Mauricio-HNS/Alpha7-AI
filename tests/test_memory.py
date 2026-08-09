@@ -1,5 +1,3 @@
-import sqlite3
-
 import pytest
 from pydantic import ValidationError
 
@@ -12,35 +10,24 @@ def memory() -> SQLiteMemory:
 
 
 def test_schema_is_created(memory: SQLiteMemory) -> None:
-    tables = memory._conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='experiences'"
-    ).fetchall()
+    tables = memory._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='experiences'").fetchall()
     assert len(tables) == 1
+    columns = {row[1] for row in memory._conn.execute("PRAGMA table_info(experiences)")}
+    assert {"embedding", "embedding_model"}.issubset(columns)
 
 
 def test_store_experience_returns_id(memory: SQLiteMemory) -> None:
-    exp = Experience(task="Liste os arquivos do projeto.", tool="filesystem", success=True)
-    exp_id = memory.store_experience(exp)
+    exp_id = memory.store_experience(Experience(task="Liste os arquivos do projeto.", tool="filesystem", success=True))
     assert isinstance(exp_id, int)
     assert exp_id > 0
 
 
 def test_get_experience_roundtrip(memory: SQLiteMemory) -> None:
-    exp = Experience(
-        task="Liste os arquivos do projeto.",
-        action="filesystem",
-        tool="filesystem",
-        input={"action": "list", "path": "."},
-        result="README.md\nmain.py\napp/\ntests/",
-        evaluation="success",
-        success=True,
-        importance=0.7,
-        metadata={"source": "test"},
-    )
+    exp = Experience(task="Liste os arquivos do projeto.", action="filesystem", tool="filesystem",
+                      input={"action": "list", "path": "."}, result="README.md\nmain.py\napp/\ntests/",
+                      evaluation="success", success=True, importance=0.7, metadata={"source": "test"})
     exp_id = memory.store_experience(exp)
-
     loaded = memory.get_experience(exp_id)
-
     assert loaded is not None
     assert loaded.id == exp_id
     assert loaded.task == exp.task
@@ -57,15 +44,9 @@ def test_get_experience_not_found_returns_none(memory: SQLiteMemory) -> None:
 
 
 def test_search_finds_relevant_experience_by_keyword(memory: SQLiteMemory) -> None:
-    memory.store_experience(
-        Experience(task="Liste os arquivos do projeto.", result="README.md, main.py", success=True)
-    )
-    memory.store_experience(
-        Experience(task="Qual a previsão do tempo?", result="Não sei, sem ferramenta de clima.", success=False)
-    )
-
+    memory.store_experience(Experience(task="Liste os arquivos do projeto.", result="README.md, main.py", success=True))
+    memory.store_experience(Experience(task="Qual a previsão do tempo?", result="Não sei, sem ferramenta de clima.", success=False))
     results = memory.search_experiences("arquivos do projeto")
-
     assert len(results) >= 1
     assert "arquivos" in results[0].task.lower()
 
@@ -73,9 +54,7 @@ def test_search_finds_relevant_experience_by_keyword(memory: SQLiteMemory) -> No
 def test_search_ranks_more_relevant_first(memory: SQLiteMemory) -> None:
     memory.store_experience(Experience(task="Liste os arquivos do projeto.", success=True))
     memory.store_experience(Experience(task="Liste os arquivos e leia o README do projeto.", success=True))
-
     results = memory.search_experiences("arquivos README projeto")
-
     assert results[0].task == "Liste os arquivos e leia o README do projeto."
 
 
@@ -89,15 +68,12 @@ def test_search_with_empty_query_returns_empty_list(memory: SQLiteMemory) -> Non
 
 
 def test_experience_without_task_is_rejected() -> None:
-    # task é obrigatório: uma "experiência" sem task não representa nada que
-    # realmente aconteceu, então a validação deve barrar isso na criação.
     with pytest.raises(ValidationError):
         Experience(result="algo aconteceu", success=True)  # type: ignore[call-arg]
 
 
 def test_success_defaults_to_none_when_not_evaluated(memory: SQLiteMemory) -> None:
-    exp = Experience(task="Tarefa ainda não avaliada")
-    exp_id = memory.store_experience(exp)
+    exp_id = memory.store_experience(Experience(task="Tarefa ainda não avaliada"))
     loaded = memory.get_experience(exp_id)
     assert loaded is not None
     assert loaded.success is None
@@ -106,8 +82,57 @@ def test_success_defaults_to_none_when_not_evaluated(memory: SQLiteMemory) -> No
 def test_each_memory_instance_has_isolated_in_memory_db() -> None:
     mem_a = SQLiteMemory(db_path=":memory:")
     mem_b = SQLiteMemory(db_path=":memory:")
-
     mem_a.store_experience(Experience(task="Só existe em A", success=True))
-
     assert mem_a.search_experiences("existe") != []
     assert mem_b.search_experiences("existe") == []
+
+
+class FakeEmbedder:
+    model = "fake-bge-m3"
+
+    def __init__(self, vectors: dict[str, list[float]]) -> None:
+        self.vectors = vectors
+        self.calls: list[str] = []
+
+    def embed(self, text: str) -> list[float]:
+        self.calls.append(text)
+        return self.vectors[text]
+
+
+def test_semantic_search_uses_embeddings_and_cosine_similarity() -> None:
+    vectors = {
+        "Python web backend": [1.0, 0.0],
+        "Java backend": [0.8, 0.2],
+        "receita de bolo": [0.0, 1.0],
+        "desenvolvimento API web": [0.95, 0.05],
+    }
+    embedder = FakeEmbedder(vectors)
+    memory = SQLiteMemory(db_path=":memory:", embedder=embedder)
+    memory.store_experience(Experience(task="Python web backend"))
+    memory.store_experience(Experience(task="Java backend"))
+    memory.store_experience(Experience(task="receita de bolo"))
+    results = memory.search_experiences("desenvolvimento API web")
+    assert [result.task for result in results] == ["Python web backend", "Java backend", "receita de bolo"]
+    assert len(embedder.calls) == 6
+
+
+def test_semantic_search_falls_back_to_keyword_when_embedding_fails() -> None:
+    class BrokenEmbedder:
+        model = "bge-m3"
+        def embed(self, text: str) -> list[float]:
+            raise RuntimeError("Ollama indisponível")
+    memory = SQLiteMemory(db_path=":memory:", embedder=BrokenEmbedder())
+    memory.store_experience(Experience(task="arquivos do projeto", success=True))
+    results = memory.search_experiences("arquivos")
+    assert len(results) == 1
+    assert results[0].task == "arquivos do projeto"
+
+
+def test_semantic_embedding_is_persisted() -> None:
+    embedder = FakeEmbedder({"tarefa semântica": [0.6, 0.8]})
+    memory = SQLiteMemory(db_path=":memory:", embedder=embedder)
+    exp_id = memory.store_experience(Experience(task="tarefa semântica"))
+    row = memory._conn.execute("SELECT embedding, embedding_model FROM experiences WHERE id = ?", (exp_id,)).fetchone()
+    assert row is not None
+    assert row["embedding_model"] == "fake-bge-m3"
+    assert row["embedding"] == "[0.6, 0.8]"
