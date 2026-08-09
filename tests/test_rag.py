@@ -15,7 +15,7 @@ class FakeEmbedder:
 
 def test_document_is_split_into_overlapping_chunks() -> None:
     text = "abcdefghij"
-    embedder = FakeEmbedder({"abcde": [1, 0], "defgh": [1, 0], "hij": [1, 0]})
+    embedder = FakeEmbedder({"abcde": [1, 0], "defgh": [1, 0], "ghij": [1, 0]})
     retriever = InMemoryRetriever(embedder, chunk_size=5, chunk_overlap=2, min_score=0.0)
 
     count = retriever.add_document(Document(source="doc.txt", text=text))
