@@ -16,8 +16,8 @@ Princípio central: compreender os mecanismos fundamentais antes de escondê-los
 v0.1: DONE
 v0.2: DONE
 v0.3: DONE
-v0.4: IN PROGRESS
-NEXT MILESTONE: v0.4
+v0.4: DONE
+NEXT MILESTONE: v0.5
 ```
 
 | Componente | Status | Observação |
@@ -60,8 +60,8 @@ NEXT MILESTONE: v0.4
 v0.1  Agent básico                    [DONE]
 v0.2  Experience Memory               [DONE]
 v0.3  Semantic Memory / BGE-M3        [DONE]
-v0.4  RAG                             [IN PROGRESS]
-v0.5  Planning                        [TODO]
+v0.4  RAG                             [DONE]
+v0.5  Planning                        [NEXT]
 v0.6  Evaluation / Reflection         [TODO]
 v0.7  Autonomous loops                [TODO]
 v0.8  Multi-agent                     [TODO]
