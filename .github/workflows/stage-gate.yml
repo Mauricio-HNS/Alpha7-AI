@@ -1,0 +1,58 @@
+name: Stage Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run Ollama
+        if: contains(github.event.head_commit.message, '')
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve > /tmp/ollama.log 2>&1 &
+          for i in {1..30}; do
+            curl -sf http://127.0.0.1:11434/api/tags >/dev/null && break
+            sleep 2
+          done
+          curl --fail http://127.0.0.1:11434/api/tags
+
+      - name: Load BGE-M3 for semantic-memory gate
+        run: ollama pull bge-m3:latest
+
+      - name: Run automatic stage gate
+        run: python scripts/stage_gate.py
+
+      - name: Commit automatic stage promotion
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          if git diff --quiet -- PROJECT_CONTEXT.md; then
+            echo "No stage promotion needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PROJECT_CONTEXT.md
+          git commit -m "ci: promote completed project stage"
+          git push
