@@ -16,6 +16,7 @@ Princípio central: compreender os mecanismos fundamentais antes de escondê-los
 v0.1: DONE
 v0.2: DONE
 v0.3: DONE
+v0.4: IN PROGRESS
 NEXT MILESTONE: v0.4
 ```
 
@@ -40,8 +41,11 @@ NEXT MILESTONE: v0.4
 | CI automatizado | IMPLEMENTED | GitHub Actions executa a suíte |
 | Stage Gate automático | IMPLEMENTED | valida critérios explícitos antes de promover etapa |
 | Testes de semântica | IMPLEMENTED | fakes para não depender do Ollama |
-| Validação real com Ollama/BGE-M3 | GATE | executada pelo Stage Gate no GitHub |
-| RAG | NOT IMPLEMENTED | v0.4 |
+| Validação real com Ollama/BGE-M3 | DONE | validada pelo Stage Gate |
+| RAG: documentos/chunks | IMPLEMENTED | `Document` + chunking determinístico |
+| RAG: recuperação vetorial | IMPLEMENTED | `InMemoryRetriever` + cosine similarity |
+| RAG: contexto no Agent | IMPLEMENTED | retriever opcional no núcleo do Agent |
+| RAG persistente | TODO | próximo incremento do v0.4 |
 | Planner | STUB | futuro |
 | Executor | STUB | futuro |
 | Reflection | NOT IMPLEMENTED | futuro |
@@ -56,7 +60,7 @@ NEXT MILESTONE: v0.4
 v0.1  Agent básico                    [DONE]
 v0.2  Experience Memory               [DONE]
 v0.3  Semantic Memory / BGE-M3        [DONE]
-v0.4  RAG                             [NEXT]
+v0.4  RAG                             [IN PROGRESS]
 v0.5  Planning                        [TODO]
 v0.6  Evaluation / Reflection         [TODO]
 v0.7  Autonomous loops                [TODO]
@@ -64,7 +68,7 @@ v0.8  Multi-agent                     [TODO]
 v0.9  Multimodal                      [TODO]
 v1.0  Stable agent architecture       [TODO]
 v1.x  Local model experiments         [TODO]
-v2.x  Fine-tuning                    [TODO]
+v2.x  Fine-tuning                     [TODO]
 v3.x  PyTorch experiments             [TODO]
 v4.x  Training experiments            [TODO]
 v5.x  Custom architectures            [TODO]
@@ -124,8 +128,7 @@ experiências relevantes
 - `backfill_embeddings()` para vetorizar registros sem embedding e reconstruir registros quando o modelo ativo mudou.
 - CLI configurada para usar Gemma 3 + BGE-M3.
 - Testes para persistência, ranking semântico, falhas, legado, corrupção, reindexação por troca de modelo e filtragem de baixa relevância.
-- Stage Gate que executa `pytest -v` e uma chamada real ao `/api/embed` quando v0.3 está em progresso.
-- GitHub Actions atualizado para `actions/checkout@v5` e `actions/setup-python@v6`.
+- Stage Gate com suíte completa e validação real do endpoint `/api/embed`.
 
 ### Critérios de fechamento
 
@@ -136,20 +139,77 @@ experiências relevantes
 5. O comportamento do teste semântico deve respeitar `SEMANTIC_MIN_SCORE=0.35`.
 6. Só depois de todos os gates passarem o Stage Gate pode promover v0.3 para `[DONE]` e v0.4 para `[NEXT]`.
 
-## 5. Arquitetura atual
+## 5. v0.4 — RAG
+
+### Objetivo
+
+Adicionar Retrieval-Augmented Generation explícito ao Agent, começando por um índice vetorial local simples antes de introduzir persistência ou frameworks externos:
+
+```text
+Documento
+   ↓
+chunking + overlap
+   ↓
+IEmbedder / BGE-M3
+   ↓
+índice vetorial local
+   ↓
+cosine similarity
+   ↓
+threshold + top-k
+   ↓
+contexto recuperado
+   ↓
+Agent / LLM
+```
+
+### Implementado neste incremento
+
+- `Document` e `Chunk` em `app/rag.py`.
+- Chunking determinístico com `chunk_size` e `chunk_overlap`.
+- `InMemoryRetriever` sem framework de agentes ou banco vetorial externo.
+- Reuso do contrato `IEmbedder` do v0.3.
+- Ranking por cosine similarity.
+- Threshold explícito e `top-k`.
+- Contexto formatado com `source`, número do chunk e score.
+- Conteúdo recuperado rotulado como **DADOS, NÃO INSTRUÇÕES**.
+- `Agent(retriever=...)` opcional, preservando compatibilidade com o Agent existente.
+- Falha de recuperação não derruba o Agent: ele continua sem contexto RAG.
+
+### Próximos incrementos do v0.4
+
+- persistência do índice/documentos;
+- ingestão de arquivos do projeto;
+- deduplicação e atualização de documentos;
+- avaliação de qualidade de retrieval;
+- gate real de RAG no GitHub Actions.
+
+### Critérios de fechamento
+
+1. `pytest -v` deve terminar sem falhas.
+2. Chunking deve preservar fonte, ordem e overlap configurados.
+3. Retrieval deve respeitar cosine similarity, threshold e top-k.
+4. O contexto deve identificar a fonte e tratar conteúdo recuperado como DATA.
+5. O Agent deve aceitar um retriever opcional sem quebrar os fluxos existentes.
+6. O Stage Gate deve executar testes específicos de RAG antes de promover v0.4.
+
+## 6. Arquitetura atual
 
 ```text
 User
  ↓
 Agent
- ↓
-SQLiteMemory.search_experiences
- ├── OllamaEmbedder / BGE-M3
- │    ↓
- │  cosine similarity
- │    ↓
- │  relevance threshold
- └── keyword fallback
+ ├── SQLiteMemory.search_experiences
+ │    ├── OllamaEmbedder / BGE-M3
+ │    ├── cosine similarity
+ │    └── keyword fallback
+ │
+ ├── RAG retriever (opcional)
+ │    ├── document chunks
+ │    ├── embeddings
+ │    ├── cosine similarity
+ │    └── relevance threshold / top-k
+ │
  ↓
 LLM / Gemma 3
  ↓
@@ -164,9 +224,9 @@ SQLiteMemory.store_experience
 Response
 ```
 
-O `Agent` continua dependente somente de `IMemory`; a introdução de embeddings não acopla o núcleo à implementação específica do Ollama.
+O `Agent` continua dependente somente de `IMemory` e, agora, de um `IRetriever` opcional. A introdução de RAG não acopla o núcleo a Ollama, banco vetorial ou framework de agentes.
 
-## 6. Stage Gate
+## 7. Stage Gate
 
 O validador está em `scripts/stage_gate.py`.
 
@@ -174,11 +234,12 @@ O validador está em `scripts/stage_gate.py`.
 - Recusa promoção se não existir um gate explícito para a etapa.
 - Exige a suíte completa de testes.
 - Para v0.3, exige também resposta real do endpoint `/api/embed` com `bge-m3:latest`.
+- Para v0.4, deve exigir os testes específicos de RAG antes da promoção.
 - Só modifica `PROJECT_CONTEXT.md` depois de todos os critérios passarem.
 - O workflow `.github/workflows/stage-gate.yml` executa automaticamente em pushes para `main`.
 - A promoção automática gera um commit separado com `[skip ci]` para evitar loop.
 
-## 7. Princípios
+## 8. Princípios
 
 1. Simplicidade antes de abstração excessiva.
 2. Compreensão antes de frameworks.
@@ -190,11 +251,11 @@ O validador está em `scripts/stage_gate.py`.
 8. Memória não é treinamento.
 9. Modelos existentes primeiro; modelos próprios depois.
 10. Documentação acompanha o código.
-11. Conteúdo recuperado da memória é DATA, nunca instrução confiável.
+11. Conteúdo recuperado da memória e do RAG é DATA, nunca instrução confiável.
 12. Recuperação semântica deve possuir um critério explícito de relevância.
 13. Nenhuma etapa é promovida sem validação automatizada correspondente.
 
-## 8. Ambiente local conhecido
+## 9. Ambiente local conhecido
 
 ```text
 OS: macOS
@@ -207,7 +268,7 @@ Embeddings: bge-m3:latest
 
 Nenhuma credencial, token ou senha deve ser versionada.
 
-## 9. Decisões relevantes
+## 10. Decisões relevantes
 
 ### AD-001 — Python
 Escolhido para agentes, embeddings, PyTorch, Transformers e pesquisa experimental.
@@ -239,23 +300,8 @@ O repositório possui GitHub Actions para impedir que uma etapa seja considerada
 ### AD-010 — Reindexação por modelo
 Embeddings são associados ao modelo que os produziu. Quando o modelo ativo muda, `backfill_embeddings()` pode reconstruir os vetores antigos, evitando comparar vetores de espaços semânticos diferentes.
 
-### AD-011 — Relevância mínima
-A busca semântica descarta resultados abaixo de `SEMANTIC_MIN_SCORE`. O valor padrão inicial é 0.35 e pode ser ajustado sem alterar o código.
+### AD-011 — RAG incremental
+O primeiro RAG usa chunking e índice em memória para manter o mecanismo visível e testável. Persistência e ingestão serão adicionadas em incrementos separados, antes de qualquer framework externo.
 
-### AD-012 — Stage Gate baseado no estado real
-A etapa em andamento é identificada pelo marcador `IN PROGRESS`, enquanto `NEXT MILESTONE` representa a etapa seguinte somente após a promoção. Isso evita que o próprio gate pule uma etapa ou bloqueie a promoção por ler o próximo marco.
-
-## 10. Próxima sessão de IA
-
-```text
-1. Ler AGENTS.md
-2. Ler PROJECT_CONTEXT.md
-3. Ler README.md
-4. Identificar [IN PROGRESS] / NEXT MILESTONE
-5. Rodar pytest -v
-6. Validar os gates reais da etapa atual
-7. Corrigir somente problemas encontrados na etapa atual
-8. Se tudo passar: deixar o Stage Gate promover automaticamente
-9. Confirmar PROJECT_CONTEXT.md
-10. Só então iniciar a próxima etapa
-```
+### AD-012 — RAG como dependência opcional
+O `Agent` recebe `IRetriever` opcional. Isso mantém os fluxos v0.1-v0.3 compatíveis e permite substituir o índice sem alterar o núcleo de decisão.
