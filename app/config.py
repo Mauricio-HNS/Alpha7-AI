@@ -22,6 +22,8 @@ class Settings(BaseModel):
     max_steps: int = 5
     max_tool_calls: int = 10
 
+    memory_db_path: str = "data/memory.db"
+
 
 def load_settings() -> Settings:
     return Settings(
@@ -30,6 +32,7 @@ def load_settings() -> Settings:
         llm_timeout=int(os.getenv("LLM_TIMEOUT", "60")),
         max_steps=int(os.getenv("MAX_STEPS", "5")),
         max_tool_calls=int(os.getenv("MAX_TOOL_CALLS", "10")),
+        memory_db_path=os.getenv("MEMORY_DB_PATH", "data/memory.db"),
     )
 
 

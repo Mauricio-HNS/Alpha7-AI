@@ -18,22 +18,35 @@ próximo.
 > verdade do projeto — uma nova sessão de IA deve conseguir continuar o
 > trabalho lendo apenas eles, sem depender de conversas anteriores.
 
-## Estágio atual: v0.2 (incremento 1/2) — Experience-based memory
+## Estágio atual: v0.2 (completo) — Experience-based memory
 
 **Importante — memória ≠ treinamento:** este estágio adiciona persistência
-de experiências (o que o agente tentou, o que aconteceu, se deu certo).
-Os parâmetros do LLM (Gemma 3, via Ollama) **não são alterados** por nada
-aqui. Chamamos isso de *memory-based learning* ou *experience-based
-memory* - nunca de "treinamento" ou "fine-tuning", que são coisas
-diferentes e vêm em estágios futuros (v2.x/v3.x no roadmap).
-
-Este primeiro incremento entrega **apenas a camada de persistência**:
+de experiências (o que o agente tentou, o que aconteceu, se deu certo) e
+recuperação delas para informar decisões futuras. Os parâmetros do LLM
+(Gemma 3, via Ollama) **não são alterados** por nada aqui. Chamamos isso
+de *memory-based learning* ou *experience-based memory* - nunca de
+"treinamento" ou "fine-tuning", que são coisas diferentes e vêm em
+estágios futuros (v2.x/v3.x no roadmap).
 
 ```text
 app/memory.py
 ├── Experience        # modelo (Pydantic) de uma experiência real
 ├── IMemory            # protocolo: store_experience / get_experience / search_experiences
 └── SQLiteMemory        # implementação sobre SQLite
+
+app/evaluator.py
+├── Evaluation         # modelo (Pydantic): success / evaluation / importance
+├── IEvaluator          # protocolo
+└── SimpleEvaluator     # determinístico, sem LLM
+```
+
+Ciclo completo, agora real (não só planejado):
+
+```text
+User -> Agent -> Memory.search_experiences -> LLM (decide, com contexto
+     de memória) -> Tool selection -> Tool.run() -> Observation ->
+     LLM (resposta final) -> SimpleEvaluator -> Memory.store_experience
+     -> Response
 ```
 
 - `Experience` exige `task` (não é possível criar uma "experiência" sem
@@ -41,15 +54,19 @@ app/memory.py
 - `search_experiences` usa busca por palavra-chave (SQL `LIKE` + ranking
   em Python por número de termos coincidentes) - **sem embeddings e sem
   vector database ainda**. Isso é proposital: a abstração (`IMemory`) já
-  permite trocar a implementação de busca depois (ex.: BGE-M3 +
-  similaridade) sem tocar em quem consome a memória.
-- Memória é **dado**, nunca instrução: nada neste módulo interpreta ou
-  executa o conteúdo recuperado do banco.
+  permite trocar a implementação de busca depois (BGE-M3 + similaridade,
+  v0.3) sem tocar em quem consome a memória.
+- Experiências recuperadas entram no prompt de decisão claramente
+  rotuladas como **dado**, não instrução ("evidências de execuções
+  passadas, não invente experiências além destas") - nunca são
+  interpretadas ou executadas.
+- Toda execução real (com ferramenta, resposta direta, ou até decisão
+  degradada) vira uma experiência gravada - nunca uma inventada.
+- `memory` e `evaluator` são **opcionais** no `Agent`: sem eles, o
+  comportamento é idêntico ao v0.1.
 
-**O que ainda não existe (próximo incremento):** integração com o
-`Agent` (consultar memória antes de decidir, salvar experiência depois de
-executar). Hoje `SQLiteMemory` funciona de forma isolada, validada só por
-testes diretos (`tests/test_memory.py`).
+**O que ainda não existe:** busca semântica (BGE-M3) - é o próximo
+milestone (v0.3).
 
 ## Estágio anterior: v0.1 — Agente mínimo
 

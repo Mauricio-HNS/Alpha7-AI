@@ -10,15 +10,19 @@ from __future__ import annotations
 
 from app.agent import Agent
 from app.config import settings
+from app.evaluator import SimpleEvaluator
 from app.llm import OllamaProvider
 from app.logging_config import setup_logging
+from app.memory import SQLiteMemory
 from app.tools.filesystem import FileSystemTool
 
 
 def build_agent() -> Agent:
     llm = OllamaProvider(model=settings.ollama_model, base_url=settings.ollama_base_url)
     tools = [FileSystemTool(root_dir=".")]
-    return Agent(llm=llm, tools=tools)
+    memory = SQLiteMemory(db_path=settings.memory_db_path)
+    evaluator = SimpleEvaluator()
+    return Agent(llm=llm, tools=tools, memory=memory, evaluator=evaluator)
 
 
 def main() -> None:

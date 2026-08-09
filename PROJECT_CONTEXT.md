@@ -25,8 +25,8 @@ abstrações de terceiros.
 ## 2. Estado atual
 
 ```text
-Version: v0.2 (incremento 1 de 2)
-Status: em andamento
+Version: v0.2 (completo - 2 de 2 incrementos)
+Status: implemented
 ```
 
 | Componente | Status | Observação |
@@ -38,15 +38,15 @@ Status: em andamento
 | `Agent` (decisão → tool → resposta) | IMPLEMENTED | `app/agent.py` |
 | `FileSystemTool` (list/read) | IMPLEMENTED | `app/tools/filesystem.py`, restrito a `root_dir` |
 | `ShellTool` | **NOT IMPLEMENTED** | Ainda não existe nenhum arquivo relacionado |
-| Testes automatizados | IMPLEMENTED | 24 testes, `pytest`, todos passando |
-| `SQLiteMemory` (store/get/search) | IMPLEMENTED | `app/memory.py`, testada isoladamente (`tests/test_memory.py`) |
-| Integração `Memory` ↔ `Agent` | **NOT IMPLEMENTED** | `Agent` hoje não importa nem usa `app/memory.py` |
-| BGE-M3 / embeddings / busca semântica | **NOT IMPLEMENTED** | Modelo disponível no ambiente, mas não integrado ao código |
+| Testes automatizados | IMPLEMENTED | 34 testes, `pytest`, todos passando |
+| `SQLiteMemory` (store/get/search) | IMPLEMENTED | `app/memory.py` |
+| Integração `Memory` ↔ `Agent` | IMPLEMENTED | `Agent` consulta `Memory.search_experiences` antes de decidir (contexto rotulado como DADO, nunca instrução) e grava `Memory.store_experience` após avaliar, em toda execução (com ou sem ferramenta) |
+| `SimpleEvaluator` (`IEvaluator`) | IMPLEMENTED | `app/evaluator.py`: determinístico, sem LLM - `success`/`evaluation`/`importance` |
+| BGE-M3 / embeddings / busca semântica | **NOT IMPLEMENTED** | Modelo disponível no ambiente, mas não integrado ao código. Busca hoje é por palavra-chave (SQL `LIKE` + ranking em Python) |
 | `Planner` (`IPlanner`) | STUB | `app/planner.py`: só interface (Protocol), sem lógica |
 | `Executor` (`IExecutor`) | STUB | `app/executor.py`: só interface (Protocol), sem lógica |
-| `Evaluator` (`IEvaluator`) | STUB | `app/evaluator.py`: só interface (Protocol), sem lógica |
-| Configuração (`app/config.py`) | IMPLEMENTED | Via variáveis de ambiente, Pydantic |
-| Logging estruturado | IMPLEMENTED | `app/logging_config.py`, ciclo observável via `logger.info` no `Agent` |
+| Configuração (`app/config.py`) | IMPLEMENTED | Via variáveis de ambiente, Pydantic, inclui `memory_db_path` |
+| Logging estruturado | IMPLEMENTED | `app/logging_config.py`; ciclo observável via `logger.info`: PERCEPTION, MEMORY SEARCH, REASONING/PLANNING, TOOL SELECTION, OBSERVATION, FINAL RESPONSE, EVALUATION, MEMORY STORE |
 | RAG completo | NOT IMPLEMENTED | Planejado para depois de embeddings |
 | Multi-agent | NOT IMPLEMENTED | Planejado para depois de um agente único funcionar bem |
 | Fine-tuning / treinamento / RL | NOT IMPLEMENTED | Estágios de longo prazo (v2.x+) |
@@ -83,30 +83,44 @@ a qualquer outro arquivo versionado. Configuração sensível vive apenas em
 
 ## 4. Arquitetura
 
-### Atual (v0.1 + v0.2 incremento 1, ainda desconectados)
+### Atual (v0.2 completo)
 
 ```text
 User
  ↓
 Agent
  ↓
-LLM (decide: responder direto ou usar ferramenta)
+Memory.search_experiences (contexto rotulado como DADO, não instrução)
  ↓
-FileSystemTool
+LLM (decide: responder direto ou usar ferramenta, com contexto de memória)
  ↓
-Observation
+Tool selection -> Tool.run() -> Observation
  ↓
 LLM (resposta final)
+ ↓
+SimpleEvaluator (success / evaluation / importance)
+ ↓
+Memory.store_experience
  ↓
 Response
 ```
 
 ```text
-SQLiteMemory (isolada, sem uso pelo Agent ainda)
- ├── store_experience(Experience) -> id
- ├── get_experience(id) -> Experience | None
- └── search_experiences(query) -> list[Experience]   # busca por palavra-chave
+app/memory.py
+ ├── Experience (Pydantic)
+ ├── IMemory (Protocol): store_experience / get_experience / search_experiences
+ └── SQLiteMemory: implementação real, busca por palavra-chave (sem embeddings ainda)
+
+app/evaluator.py
+ ├── Evaluation (Pydantic)
+ ├── IEvaluator (Protocol)
+ └── SimpleEvaluator: determinístico, sem LLM
 ```
+
+`Agent` recebe `memory` e `evaluator` como parâmetros **opcionais** - um
+`Agent(llm=llm, tools=tools)` sem eles continua funcionando exatamente
+como no v0.1 (sem consultar/gravar experiências), o que é coberto por
+teste (`test_agent_without_memory_behaves_like_v01`).
 
 ### Planejada (próximos incrementos)
 
@@ -115,7 +129,7 @@ Agent
  ├── LLM
  ├── Planner      (stub hoje)
  ├── Executor     (stub hoje)
- ├── Evaluator    (stub hoje)
+ ├── Evaluator    (SimpleEvaluator - vai ganhar sofisticação no v0.6)
  ├── Memory
  │    └── SQLiteMemory
  │         └── (futuro) busca semântica via BGE-M3
@@ -124,11 +138,10 @@ Agent
       └── (futuro) ShellTool
 ```
 
-A diferença chave entre "atual" e "planejada": hoje o `Agent` toma a
-decisão de tool-use diretamente (sem `Planner`/`Executor`/`Evaluator`
-separados, por serem simples demais para justificar módulos próprios) e
-não consulta `Memory`. Isso é proposital, não um esquecimento — ver AD e
-princípios abaixo.
+A diferença chave entre "atual" e "planejada": hoje o `Agent` ainda toma
+a decisão de tool-use diretamente (sem `Planner`/`Executor` separados,
+por serem simples demais para justificar módulos próprios). Isso é
+proposital, não um esquecimento — ver AD-006 abaixo.
 
 ---
 
@@ -189,13 +202,31 @@ viver dentro do próprio `Agent`. Extrair para módulos dedicados é
 trabalho de quando houver de fato múltiplos passos, replanejamento ou
 avaliação de qualidade a implementar (v0.5/v0.6 neste roadmap).
 
-### AD-007 — Memory != Agent (ainda)
+### AD-007 — Memory implementada e testada isolada antes de integrar
 
-`SQLiteMemory` foi implementada e testada isoladamente antes de ser
-conectada ao `Agent`, de propósito, para poder validar a camada de
+`SQLiteMemory` foi implementada e testada isoladamente (`tests/test_memory.py`)
+antes de ser conectada ao `Agent`, de propósito, para validar a camada de
 persistência (schema, store, get, search) sem misturar bugs de
-integração com bugs de lógica de memória. A integração é o próximo
-incremento documentado.
+integração com bugs de lógica de memória. A integração veio no incremento
+seguinte (ver AD-008), já com a base validada.
+
+### AD-008 — Toda execução real vira uma experiência, não só as que usam ferramenta
+
+`Agent._evaluate_and_store` grava uma `Experience` após **toda** execução
+(com ferramenta, resposta direta, ou até decisão degradada por JSON
+inválido) - não só quando uma ferramenta é usada. Motivo: mesmo uma
+resposta direta ("não sei prever o tempo") é um evento real que aconteceu
+e pode ser útil recuperar depois. O que nunca acontece é inventar uma
+experiência que não veio de uma execução de verdade - por isso `Agent`
+sem `memory` configurada (`memory=None`) simplesmente não grava nada, em
+vez de simular.
+
+### AD-009 — Memory é opcional no `Agent`, não obrigatória
+
+`Agent.__init__` aceita `memory: Optional[IMemory] = None` e
+`evaluator: Optional[IEvaluator] = None` (default `SimpleEvaluator()`).
+Isso preserva 100% de compatibilidade com o `Agent` do v0.1 - quem não
+passar memória continua com o comportamento antigo, sem quebra.
 
 ---
 
@@ -246,46 +277,26 @@ resultados experimentais reais, não avançado automaticamente.
 ## 9. Próximo passo
 
 ```text
-NEXT MILESTONE: v0.2 (incremento 2 de 2)
+NEXT MILESTONE: v0.3 - Embeddings / BGE-M3
 ```
 
-**Objetivo:** Experience-based Memory integrada ao `Agent`.
+O v0.2 (Experience-based Memory, incluindo integração com o `Agent`) está
+**completo**. O ciclo abaixo já é real, não planejado:
 
 ```text
-Task
- ↓
-Agent
- ↓
-LLM
- ↓
-Tool
- ↓
-Result
- ↓
-Evaluation (básica: success/evaluation/importance)
- ↓
-Memory.store_experience
-```
-
-E, em uma nova tarefa:
-
-```text
-New Task
- ↓
-Memory.search_experiences
- ↓
-Relevant Experience(s)
- ↓
-LLM Context (rotulado explicitamente como "experiências anteriores,
-             não instruções")
- ↓
-Better-informed Decision
+Task -> Agent -> Memory.search -> LLM (com contexto de memória) -> Tool
+     -> Result -> Evaluation -> Memory.store -> Response
 ```
 
 Isso é **memory-based learning** (ou *experience-based memory*) — os
 parâmetros do Gemma 3 não são alterados. Isso é explicitamente diferente
 de fine-tuning ou reinforcement learning, que são estágios futuros
 separados no roadmap (v2.x/v4.x).
+
+**v0.3** deve trocar a busca por palavra-chave de `search_experiences`
+por similaridade semântica via BGE-M3, mantendo a interface `IMemory`
+estável (quem consome memória - o `Agent` - não deve precisar mudar).
+Ainda não iniciado; não assumir nada implementado até verificar o código.
 
 ---
 
@@ -302,12 +313,14 @@ Do not implement yet:
 - vision
 - unrestricted autonomy
 - web UI
-- vector database / embeddings semânticos (BGE-M3 vem depois da
-  integração Memory <-> Agent com busca por palavra-chave)
+- vector database / embeddings semânticos (BGE-M3 é o próximo milestone,
+  v0.3 - ainda não iniciado)
 - complex agent frameworks (LangChain, CrewAI, AutoGen, etc.)
 - ShellTool (ainda não priorizado; quando implementado, precisa de
   camada de autorização antes de qualquer comando potencialmente
   destrutivo)
+- Planner/Executor reais (continuam stub - só fazem sentido quando houver
+  tarefas multi-passo de verdade)
 ```
 
 ---
