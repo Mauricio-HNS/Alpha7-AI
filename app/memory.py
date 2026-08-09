@@ -33,20 +33,14 @@ class Experience(BaseModel):
 
 
 class IEmbedder(Protocol):
-    def embed(self, text: str) -> list[float]:
-        """Converte texto em vetor numérico."""
-        ...
+    def embed(self, text: str) -> list[float]: ...
 
 
 class OllamaEmbedder:
     """Embeddings locais através do endpoint /api/embed do Ollama."""
 
-    def __init__(
-        self,
-        model: Optional[str] = None,
-        base_url: Optional[str] = None,
-        timeout: Optional[int] = None,
-    ) -> None:
+    def __init__(self, model: Optional[str] = None, base_url: Optional[str] = None,
+                 timeout: Optional[int] = None) -> None:
         self.model = model or settings.embedding_model
         self.base_url = (base_url or settings.ollama_base_url).rstrip("/")
         self.timeout = timeout or settings.llm_timeout
@@ -96,14 +90,11 @@ class SQLiteMemory:
 
     Without an embedder, legacy keyword search remains available. With an
     embedder, new experiences are vectorized and queries use cosine similarity.
-    Existing databases are migrated in place by adding the embedding columns.
+    Existing databases are migrated in place and legacy rows remain searchable
+    through keyword fallback until they are embedded.
     """
 
-    def __init__(
-        self,
-        db_path: str = "data/memory.db",
-        embedder: Optional[IEmbedder] = None,
-    ) -> None:
+    def __init__(self, db_path: str = "data/memory.db", embedder: Optional[IEmbedder] = None) -> None:
         self.db_path = db_path
         self.embedder = embedder
         if db_path != ":memory:":
@@ -138,7 +129,7 @@ class SQLiteMemory:
                 embedding = self.embedder.embed(self._experience_text(experience))
                 embedding_model = getattr(self.embedder, "model", None)
             except Exception:
-                logger.exception("MEMORY.embedding | falha ao gerar embedding; armazenando sem vetor")
+                logger.exception("MEMORY.embedding | falha; armazenando sem vetor")
 
         cursor = self._conn.execute(
             """
@@ -181,14 +172,14 @@ class SQLiteMemory:
 
     def _semantic_search(self, query: str, limit: int) -> list[Experience]:
         query_vector = self.embedder.embed(query)  # type: ignore[union-attr]
-        rows = self._conn.execute(
-            "SELECT * FROM experiences WHERE embedding IS NOT NULL"
-        ).fetchall()
+        rows = self._conn.execute("SELECT * FROM experiences WHERE embedding IS NOT NULL").fetchall()
+        if not rows:
+            return self._keyword_search(query, limit)
+
         scored: list[tuple[float, sqlite3.Row]] = []
         for row in rows:
             vector = json.loads(row["embedding"])
-            similarity = self._cosine_similarity(query_vector, vector)
-            scored.append((similarity, row))
+            scored.append((self._cosine_similarity(query_vector, vector), row))
         scored.sort(key=lambda item: item[0], reverse=True)
         results = [self._row_to_experience(row) for score, row in scored[:limit] if score > 0]
         logger.info("MEMORY.semantic_search | query=%r candidates=%d returned=%d",
