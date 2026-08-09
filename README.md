@@ -9,7 +9,40 @@ Este projeto evolui em estágios pequenos e versionados. Cada estágio
 precisa funcionar, ter testes, ter documentação e servir de base para o
 próximo. Veja o roadmap completo no final deste README.
 
-## Estágio atual: v0.1 — Agente mínimo
+## Estágio atual: v0.2 (incremento 1/2) — Experience-based memory
+
+**Importante — memória ≠ treinamento:** este estágio adiciona persistência
+de experiências (o que o agente tentou, o que aconteceu, se deu certo).
+Os parâmetros do LLM (Gemma 3, via Ollama) **não são alterados** por nada
+aqui. Chamamos isso de *memory-based learning* ou *experience-based
+memory* - nunca de "treinamento" ou "fine-tuning", que são coisas
+diferentes e vêm em estágios futuros (v2.x/v3.x no roadmap).
+
+Este primeiro incremento entrega **apenas a camada de persistência**:
+
+```text
+app/memory.py
+├── Experience        # modelo (Pydantic) de uma experiência real
+├── IMemory            # protocolo: store_experience / get_experience / search_experiences
+└── SQLiteMemory        # implementação sobre SQLite
+```
+
+- `Experience` exige `task` (não é possível criar uma "experiência" sem
+  saber qual tarefa ela representa - isso é validado pelo Pydantic).
+- `search_experiences` usa busca por palavra-chave (SQL `LIKE` + ranking
+  em Python por número de termos coincidentes) - **sem embeddings e sem
+  vector database ainda**. Isso é proposital: a abstração (`IMemory`) já
+  permite trocar a implementação de busca depois (ex.: BGE-M3 +
+  similaridade) sem tocar em quem consome a memória.
+- Memória é **dado**, nunca instrução: nada neste módulo interpreta ou
+  executa o conteúdo recuperado do banco.
+
+**O que ainda não existe (próximo incremento):** integração com o
+`Agent` (consultar memória antes de decidir, salvar experiência depois de
+executar). Hoje `SQLiteMemory` funciona de forma isolada, validada só por
+testes diretos (`tests/test_memory.py`).
+
+## Estágio anterior: v0.1 — Agente mínimo
 
 Fluxo implementado:
 
