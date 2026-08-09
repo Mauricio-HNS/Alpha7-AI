@@ -11,8 +11,8 @@ Este projeto evolui em estágios pequenos e versionados. Cada estágio precisa f
 ```text
 v0.1  Agent básico                    [DONE]
 v0.2  Experience Memory               [DONE]
-v0.3  Semantic Memory / BGE-M3        [IN PROGRESS]
-v0.4  RAG                             [TODO]
+v0.3  Semantic Memory / BGE-M3        [DONE]
+v0.4  RAG                             [IN PROGRESS]
 v0.5  Planning                        [TODO]
 v0.6  Evaluation / Reflection         [TODO]
 v0.7  Autonomous loops                [TODO]
@@ -30,9 +30,42 @@ v5.x  Custom architectures            [TODO]
 testes passando e documentação atualizada. Ao concluir, marque a etapa como
 `[DONE]` e a seguinte como `[NEXT]` em `README.md` e `PROJECT_CONTEXT.md`.
 
+## v0.4 — RAG
+
+Primeiro incremento de Retrieval-Augmented Generation, mantendo os mecanismos explícitos e substituíveis:
+
+```text
+Documento
+ ↓
+chunking com overlap
+ ↓
+BGE-M3 / IEmbedder
+ ↓
+vetores em índice local
+ ↓
+cosine similarity + threshold
+ ↓
+contexto recuperado
+ ↓
+Agent / LLM
+```
+
+Implementado nesta etapa inicial:
+
+- `Document` e `Chunk` para representar fontes e trechos;
+- chunking determinístico com tamanho e overlap configuráveis;
+- `InMemoryRetriever` sem framework externo;
+- embeddings através do contrato `IEmbedder` já usado pelo v0.3;
+- ranking por cosine similarity;
+- limiar explícito de relevância;
+- limite de resultados (`top-k`);
+- contexto formatado com fonte, chunk e score;
+- conteúdo recuperado explicitamente rotulado como **DADOS, NÃO INSTRUÇÕES**;
+- integração opcional do `Agent` com um retriever RAG.
+
 ## v0.3 — Semantic Memory / BGE-M3
 
-Implementação em andamento:
+Implementação concluída:
 
 ```text
 User
@@ -59,15 +92,12 @@ Já implementado nesta etapa:
 - fallback para experiências antigas que ainda não possuem embedding;
 - isolamento dos embeddings pelo modelo que os produziu;
 - `backfill_embeddings()` capaz de gerar embeddings faltantes ou reconstruir embeddings quando o modelo muda;
-- testes unitários para similaridade, persistência, legado, falhas e reindexação.
-
-**Ainda falta para fechar o v0.3:** executar a suíte completa em ambiente real,
-validar o `bge-m3` via Ollama e, se necessário, corrigir os últimos detalhes de
-integração. Só depois disso o v0.3 poderá ser marcado como `[DONE]`.
+- testes unitários para similaridade, persistência, legado, falhas e reindexação;
+- validação real do BGE-M3 pelo Stage Gate do GitHub Actions.
 
 ## O que ainda não existe
 
-- RAG
+- RAG completo com persistência de documentos
 - Planner real
 - Executor real
 - Reflection
@@ -83,12 +113,13 @@ integração. Só depois disso o v0.3 poderá ser marcado como `[DONE]`.
 - Python 3.12+
 - `ILLM` + `OllamaProvider`
 - Gemma 3 via Ollama
-- `Agent` com decisão, ferramentas, avaliação e memória
+- `Agent` com decisão, ferramentas, avaliação, memória e contexto RAG opcional
 - `FileSystemTool`
 - `Experience` com Pydantic
 - `SQLiteMemory`
 - `SimpleEvaluator`
 - `IEmbedder` + `OllamaEmbedder`
+- `Document` + `InMemoryRetriever`
 - Logging estruturado
 - Testes automatizados
 
@@ -135,5 +166,4 @@ pytest -v
 ```
 
 Os testes de integração com Ollama devem usar mocks/fakes sempre que possível,
-para manter a suíte determinística. A validação final do v0.3 também deve
-incluir um teste real do endpoint de embeddings em ambiente local.
+para manter a suíte determinística. Os gates de integração real ficam no GitHub Actions.
