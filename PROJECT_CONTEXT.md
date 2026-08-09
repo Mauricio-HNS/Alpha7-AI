@@ -33,6 +33,9 @@ NEXT MILESTONE: v0.3 — concluir e validar Semantic Memory / BGE-M3
 | Migração de banco antigo | IMPLEMENTED | adiciona colunas sem destruir dados |
 | Similaridade semântica | IMPLEMENTED | cosine similarity em Python |
 | Fallback keyword | IMPLEMENTED | falha do Ollama ou registros legados |
+| Backfill de embeddings | IMPLEMENTED | vetoriza registros legados explicitamente |
+| Defaults locais | IMPLEMENTED | `gemma3:latest` + `bge-m3:latest` |
+| CI automatizado | IMPLEMENTED | GitHub Actions executa `pytest -v` |
 | Testes de semântica | IMPLEMENTED | fakes para não depender do Ollama |
 | Validação real com Ollama/BGE-M3 | PENDING | precisa ser executada em ambiente local |
 | Suíte completa após v0.3 | PENDING | não marcar v0.3 DONE antes disso |
@@ -103,20 +106,23 @@ experiências relevantes
 
 - `IEmbedder` em `app/memory.py`.
 - `OllamaEmbedder` usando `/api/embed`.
-- `EMBEDDING_MODEL=bge-m3` em `app/config.py`.
+- `EMBEDDING_MODEL=bge-m3:latest` em `app/config.py`.
+- `OLLAMA_MODEL=gemma3:latest` como default local.
 - `SQLiteMemory(embedder=...)`.
 - Colunas `embedding` e `embedding_model`.
 - Migração automática para bancos existentes.
 - Geração de embedding no armazenamento de novas experiências.
 - Busca semântica por cosine similarity.
 - Fallback para keyword search quando o embedding falha.
-- Fallback para keyword search quando o banco contém apenas experiências legadas sem embedding.
-- CLI configurada para usar BGE-M3.
+- Fallback para keyword search quando o banco contém experiências legadas sem embedding.
+- `backfill_embeddings()` para vetorizar explicitamente experiências legadas.
+- CLI configurada para usar Gemma 3 + BGE-M3.
+- Workflow GitHub Actions para executar a suíte automaticamente.
 - Testes para persistência, ranking semântico, falhas e legado.
 
 ### Ainda falta para fechar v0.3
 
-1. Executar `pytest -v` no ambiente do projeto.
+1. Executar `pytest -v` no ambiente do projeto após estes últimos commits.
 2. Garantir que todos os testes existentes continuam passando.
 3. Executar validação real com Ollama e `bge-m3`.
 4. Verificar o formato real retornado pelo endpoint `/api/embed` na versão local do Ollama.
@@ -136,7 +142,7 @@ SQLiteMemory.search_experiences
  │  cosine similarity
  └── keyword fallback
  ↓
-LLM
+LLM / Gemma 3
  ↓
 Tool selection → Tool.run() → Observation
  ↓
@@ -171,9 +177,9 @@ O `Agent` continua dependente somente de `IMemory`; portanto a introdução de e
 OS: macOS
 CPU/GPU: Apple M4
 GPU backend: Metal
-Ollama: local
-LLM: gemma3
-Embeddings: bge-m3
+Ollama: 0.20.2
+LLM: gemma3:latest
+Embeddings: bge-m3:latest
 ```
 
 Nenhuma credencial, token ou senha deve ser versionada.
@@ -203,6 +209,9 @@ A interface `IMemory` não mudou para introduzir embeddings. Isso permite trocar
 
 ### AD-008 — Fallback seguro
 Falha do embedding não impede o agente de funcionar: a memória degrada para busca por palavra-chave.
+
+### AD-009 — CI antes de avançar
+O repositório agora possui GitHub Actions para impedir que uma etapa seja considerada concluída sem uma suíte automatizada verde.
 
 ## 9. Próxima sessão de IA
 
