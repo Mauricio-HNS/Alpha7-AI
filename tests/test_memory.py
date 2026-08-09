@@ -113,7 +113,7 @@ def test_semantic_search_uses_embeddings_and_cosine_similarity() -> None:
     memory.store_experience(Experience(task="receita de bolo"))
     results = memory.search_experiences("desenvolvimento API web")
     assert [result.task for result in results] == ["Python web backend", "Java backend", "receita de bolo"]
-    assert len(embedder.calls) == 6
+    assert len(embedder.calls) == 4
 
 
 def test_semantic_search_falls_back_to_keyword_when_embedding_fails() -> None:
@@ -126,6 +126,19 @@ def test_semantic_search_falls_back_to_keyword_when_embedding_fails() -> None:
     results = memory.search_experiences("arquivos")
     assert len(results) == 1
     assert results[0].task == "arquivos do projeto"
+
+
+def test_semantic_search_falls_back_when_database_has_only_legacy_rows() -> None:
+    class UnusedEmbedder:
+        model = "bge-m3"
+        def embed(self, text: str) -> list[float]:
+            return [1.0, 0.0]
+    memory = SQLiteMemory(db_path=":memory:")
+    memory.store_experience(Experience(task="arquivos antigos do projeto"))
+    memory.embedder = UnusedEmbedder()
+    results = memory.search_experiences("arquivos")
+    assert len(results) == 1
+    assert results[0].task == "arquivos antigos do projeto"
 
 
 def test_semantic_embedding_is_persisted() -> None:
