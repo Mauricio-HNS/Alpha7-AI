@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Validate and advance the documented project stage when its gate passes."""
+"""Run the acceptance gate for the documented milestone.
+
+A stage is promoted only when an explicit gate exists for that stage. This
+prevents a green generic test suite from falsely marking future milestones as
+complete before their acceptance criteria are defined and tested.
+"""
 from __future__ import annotations
 
 import re
@@ -9,6 +14,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTEXT = ROOT / "PROJECT_CONTEXT.md"
+SUPPORTED_GATES = {"v0.1", "v0.2", "v0.3"}
+ORDER = ["v0.1", "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7", "v0.8", "v0.9", "v1.0"]
 
 
 def run(*args: str) -> None:
@@ -24,21 +31,13 @@ def current_stage(text: str) -> str:
 
 
 def advance_context(text: str, stage: str) -> str:
-    order = ["v0.1", "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7", "v0.8", "v0.9", "v1.0"]
-    if stage not in order:
-        raise RuntimeError(f"No automatic promotion rule for {stage}")
-    index = order.index(stage)
-    if index + 1 >= len(order):
+    index = ORDER.index(stage)
+    if index + 1 >= len(ORDER):
         return text
-    next_stage = order[index + 1]
-
-    text = re.sub(rf"({re.escape(stage)}[^\n]*\[)IN PROGRESS(\])", r"\1DONE\2", text, count=1)
-    text = re.sub(rf"({re.escape(next_stage)}[^\n]*\[)TODO(\])", r"\1NEXT\2", text, count=1)
-    text = re.sub(rf"NEXT MILESTONE: {re.escape(stage)}[^\n]*", f"NEXT MILESTONE: {next_stage}", text, count=1)
-
-    # Keep the roadmap table/text synchronized where the stage is mentioned.
+    next_stage = ORDER[index + 1]
     text = re.sub(rf"({re.escape(stage)}[^\n]*\[)IN PROGRESS(\])", r"\1DONE\2", text)
     text = re.sub(rf"({re.escape(next_stage)}[^\n]*\[)TODO(\])", r"\1NEXT\2", text)
+    text = re.sub(rf"NEXT MILESTONE: {re.escape(stage)}[^\n]*", f"NEXT MILESTONE: {next_stage}", text, count=1)
     return text
 
 
@@ -47,12 +46,16 @@ def main() -> int:
     stage = current_stage(text)
     print(f"Detected milestone: {stage}")
 
-    # Every stage must have the complete test suite green.
+    if stage not in SUPPORTED_GATES:
+        print(f"BLOCKED: no explicit automatic acceptance gate is defined for {stage}.")
+        print("Add the stage's real acceptance checks before allowing automatic promotion.")
+        return 2
+
+    # Every supported stage requires the complete suite to be green.
     run(sys.executable, "-m", "pytest", "-v")
 
     if stage == "v0.3":
-        # The workflow is responsible for starting Ollama and loading BGE-M3.
-        # This script only verifies that the real embed endpoint is reachable.
+        # The workflow starts Ollama and loads BGE-M3 before this check.
         run(
             "curl",
             "--fail",
@@ -69,8 +72,6 @@ def main() -> int:
     if new_text != text:
         CONTEXT.write_text(new_text, encoding="utf-8")
         print(f"PASS: {stage} gate passed; PROJECT_CONTEXT.md advanced.")
-    else:
-        print(f"PASS: {stage} gate passed; no promotion required.")
     return 0
 
 
