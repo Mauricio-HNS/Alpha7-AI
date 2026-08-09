@@ -162,17 +162,21 @@ class SQLiteMemory:
         return experience_id
 
     def backfill_embeddings(self, limit: Optional[int] = None) -> int:
-        """Embed legacy rows that do not have a vector yet."""
+        """Embed rows missing a vector or using a different embedding model."""
         if self.embedder is None:
             return 0
-        sql = "SELECT * FROM experiences WHERE embedding IS NULL ORDER BY id"
-        params: tuple[Any, ...] = ()
+        model = getattr(self.embedder, "model", None)
+        if model:
+            sql = "SELECT * FROM experiences WHERE embedding IS NULL OR embedding_model != ? ORDER BY id"
+            params: tuple[Any, ...] = (model,)
+        else:
+            sql = "SELECT * FROM experiences WHERE embedding IS NULL ORDER BY id"
+            params = ()
         if limit is not None:
             sql += " LIMIT ?"
-            params = (limit,)
+            params = (*params, limit)
         rows = self._conn.execute(sql, params).fetchall()
         embedded_count = 0
-        model = getattr(self.embedder, "model", None)
         for row in rows:
             experience = self._row_to_experience(row)
             try:
@@ -185,7 +189,8 @@ class SQLiteMemory:
             except Exception:
                 logger.exception("MEMORY.backfill | falha id=%s", experience.id)
         self._conn.commit()
-        logger.info("MEMORY.backfill | processed=%d embedded=%d", len(rows), embedded_count)
+        logger.info("MEMORY.backfill | processed=%d embedded=%d model=%s",
+                    len(rows), embedded_count, model)
         return embedded_count
 
     def get_experience(self, experience_id: int) -> Optional[Experience]:
