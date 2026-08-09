@@ -14,6 +14,7 @@ class Settings(BaseModel):
     max_steps: int = 5
     max_tool_calls: int = 10
     memory_db_path: str = "data/memory.db"
+    semantic_min_score: float = 0.35
 
 
 def load_settings() -> Settings:
@@ -25,6 +26,7 @@ def load_settings() -> Settings:
         max_steps=int(os.getenv("MAX_STEPS", "5")),
         max_tool_calls=int(os.getenv("MAX_TOOL_CALLS", "10")),
         memory_db_path=os.getenv("MEMORY_DB_PATH", "data/memory.db"),
+        semantic_min_score=float(os.getenv("SEMANTIC_MIN_SCORE", "0.35")),
     )
 
 
