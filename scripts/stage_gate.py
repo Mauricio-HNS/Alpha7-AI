@@ -24,10 +24,10 @@ def run(*args: str) -> None:
 
 
 def current_stage(text: str) -> str:
-    match = re.search(r"NEXT MILESTONE: (v\d+\.\d+)", text)
-    if not match:
-        raise RuntimeError("NEXT MILESTONE not found in PROJECT_CONTEXT.md")
-    return match.group(1)
+    match = re.search(r"^v(\d+\.\d+): IN PROGRESS$", text, re.MULTILINE)
+    if match:
+        return f"v{match.group(1)}"
+    raise RuntimeError("No IN PROGRESS milestone found in PROJECT_CONTEXT.md")
 
 
 def advance_context(text: str, stage: str) -> str:
@@ -35,9 +35,11 @@ def advance_context(text: str, stage: str) -> str:
     if index + 1 >= len(ORDER):
         return text
     next_stage = ORDER[index + 1]
-    text = re.sub(rf"({re.escape(stage)}[^\n]*\[)IN PROGRESS(\])", r"\1DONE\2", text)
-    text = re.sub(rf"({re.escape(next_stage)}[^\n]*\[)TODO(\])", r"\1NEXT\2", text)
-    text = re.sub(rf"NEXT MILESTONE: {re.escape(stage)}[^\n]*", f"NEXT MILESTONE: {next_stage}", text, count=1)
+    text = re.sub(rf"^{re.escape(stage)}: IN PROGRESS$", f"{stage}: DONE", text, count=1, flags=re.MULTILINE)
+    text = re.sub(rf"^NEXT MILESTONE: {re.escape(stage)}$", f"NEXT MILESTONE: {next_stage}", text, count=1, flags=re.MULTILINE)
+    text = re.sub(rf"^({re.escape(next_stage)}: )TODO$", rf"\1NEXT", text, count=1, flags=re.MULTILINE)
+    text = re.sub(rf"({re.escape(stage)}[^\n]*\[)IN PROGRESS(\])", r"\1DONE\2", text, count=1)
+    text = re.sub(rf"({re.escape(next_stage)}[^\n]*\[)TODO(\])", r"\1NEXT\2", text, count=1)
     return text
 
 
