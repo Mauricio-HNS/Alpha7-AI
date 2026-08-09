@@ -51,13 +51,15 @@ Já implementado nesta etapa:
 
 - abstração `IEmbedder`;
 - `OllamaEmbedder` usando `/api/embed`;
-- modelo configurável `bge-m3`;
+- modelo configurável `bge-m3:latest`;
 - persistência dos embeddings no SQLite;
 - migração automática de bancos existentes adicionando as colunas de embedding;
 - busca semântica por similaridade de cosseno;
 - fallback para busca por palavra-chave quando o embedding falha;
 - fallback para experiências antigas que ainda não possuem embedding;
-- testes unitários para similaridade, persistência e fallbacks.
+- isolamento dos embeddings pelo modelo que os produziu;
+- `backfill_embeddings()` capaz de gerar embeddings faltantes ou reconstruir embeddings quando o modelo muda;
+- testes unitários para similaridade, persistência, legado, falhas e reindexação.
 
 **Ainda falta para fechar o v0.3:** executar a suíte completa em ambiente real,
 validar o `bge-m3` via Ollama e, se necessário, corrigir os últimos detalhes de
@@ -94,16 +96,16 @@ integração. Só depois disso o v0.3 poderá ser marcado como `[DONE]`.
 
 - Python 3.12+
 - Ollama rodando localmente
-- `gemma3` para o LLM
-- `bge-m3` para embeddings
+- `gemma3:latest` para o LLM
+- `bge-m3:latest` para embeddings
 
 ## Configuração
 
 | Variável | Default | Descrição |
 |---|---|---|
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | URL do Ollama |
-| `OLLAMA_MODEL` | `llama3.2` | Modelo LLM |
-| `EMBEDDING_MODEL` | `bge-m3` | Modelo de embeddings |
+| `OLLAMA_MODEL` | `gemma3:latest` | Modelo LLM |
+| `EMBEDDING_MODEL` | `bge-m3:latest` | Modelo de embeddings |
 | `LLM_TIMEOUT` | `60` | Timeout em segundos |
 | `MAX_STEPS` | `5` | Limite de passos autônomos futuros |
 | `MAX_TOOL_CALLS` | `10` | Limite de chamadas de ferramenta futuras |
@@ -121,8 +123,8 @@ pip install -r requirements.txt
 
 ```bash
 ollama serve
-ollama pull gemma3
-ollama pull bge-m3
+ollama pull gemma3:latest
+ollama pull bge-m3:latest
 python main.py
 ```
 
