@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+build/
+dist/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Variáveis de ambiente / segredos
+.env
+
+# Dados locais (bancos SQLite, etc. a partir do v0.5)
+data/*.db
+data/*.sqlite3
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
