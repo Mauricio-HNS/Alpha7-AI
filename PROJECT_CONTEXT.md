@@ -32,6 +32,7 @@ NEXT MILESTONE: v0.3 — concluir e validar Semantic Memory / BGE-M3
 | Persistência de embeddings | IMPLEMENTED | JSON no SQLite |
 | Migração de banco antigo | IMPLEMENTED | adiciona colunas sem destruir dados |
 | Similaridade semântica | IMPLEMENTED | cosine similarity em Python |
+| Limiar de relevância semântica | IMPLEMENTED | `SEMANTIC_MIN_SCORE`, default 0.35 |
 | Fallback keyword | IMPLEMENTED | falha do Ollama ou registros legados |
 | Isolamento por modelo | IMPLEMENTED | resultados só usam o modelo ativo |
 | Backfill/reindexação | IMPLEMENTED | vetoriza faltantes e reprocessa quando o modelo muda |
@@ -100,6 +101,8 @@ SQLite
    ↓
 cosine similarity
    ↓
+relevância mínima
+   ↓
 experiências relevantes
 ```
 
@@ -114,13 +117,14 @@ experiências relevantes
 - Migração automática para bancos existentes.
 - Geração de embedding no armazenamento de novas experiências.
 - Busca semântica por cosine similarity.
+- Limiar configurável via `SEMANTIC_MIN_SCORE`, evitando injetar correspondências semanticamente fracas.
 - Fallback para keyword search quando o embedding falha.
-- Fallback para keyword search quando o banco contém experiências legadas sem embedding.
+- Fallback para keyword search quando o banco contém experiências legadas sem embedding ou quando não há correspondências acima do limiar.
 - Isolamento dos embeddings pelo modelo que os produziu.
 - `backfill_embeddings()` para vetorizar registros sem embedding e reconstruir registros quando o modelo ativo mudou.
 - CLI configurada para usar Gemma 3 + BGE-M3.
 - Workflow GitHub Actions para executar a suíte automaticamente.
-- Testes para persistência, ranking semântico, falhas, legado, corrupção e reindexação por troca de modelo.
+- Testes para persistência, ranking semântico, falhas, legado, corrupção, reindexação por troca de modelo e filtragem de baixa relevância.
 
 ### Ainda falta para fechar v0.3
 
@@ -142,6 +146,8 @@ SQLiteMemory.search_experiences
  ├── OllamaEmbedder / BGE-M3
  │    ↓
  │  cosine similarity
+ │    ↓
+ │  relevance threshold
  └── keyword fallback
  ↓
 LLM / Gemma 3
@@ -172,6 +178,7 @@ O `Agent` continua dependente somente de `IMemory`; portanto a introdução de e
 9. Modelos existentes primeiro; modelos próprios depois.
 10. Documentação acompanha o código.
 11. Conteúdo recuperado da memória é DATA, nunca instrução confiável.
+12. Recuperação semântica deve possuir um critério explícito de relevância.
 
 ## 7. Ambiente local conhecido
 
@@ -217,6 +224,9 @@ O repositório possui GitHub Actions para impedir que uma etapa seja considerada
 
 ### AD-010 — Reindexação por modelo
 Embeddings são associados ao modelo que os produziu. Quando o modelo ativo muda, `backfill_embeddings()` pode reconstruir os vetores antigos, evitando comparar vetores de espaços semânticos diferentes.
+
+### AD-011 — Relevância mínima
+A busca semântica descarta resultados abaixo de `SEMANTIC_MIN_SCORE` antes de montar o contexto do Agent. O valor padrão inicial é 0.35 e pode ser ajustado sem alterar o código.
 
 ## 9. Próxima sessão de IA
 
