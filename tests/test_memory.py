@@ -149,3 +149,34 @@ def test_semantic_embedding_is_persisted() -> None:
     assert row is not None
     assert row["embedding_model"] == "fake-bge-m3"
     assert row["embedding"] == "[0.6, 0.8]"
+
+
+def test_semantic_search_ignores_embeddings_from_another_model() -> None:
+    embedder = FakeEmbedder({"consulta": [1.0, 0.0]})
+    memory = SQLiteMemory(db_path=":memory:", embedder=embedder)
+    memory.store_experience(Experience(task="experiência antiga", result="consulta"))
+    memory._conn.execute(
+        "UPDATE experiences SET embedding = ?, embedding_model = ?",
+        ("[1.0, 0.0]", "different-model"),
+    )
+    memory._conn.commit()
+    results = memory.search_experiences("consulta")
+    assert results[0].task == "experiência antiga"
+    assert embedder.calls[-1] == "consulta"
+
+
+def test_semantic_search_skips_malformed_embedding_and_uses_valid_rows() -> None:
+    vectors = {
+        "válida": [1.0, 0.0],
+        "consulta": [1.0, 0.0],
+    }
+    embedder = FakeEmbedder(vectors)
+    memory = SQLiteMemory(db_path=":memory:", embedder=embedder)
+    memory.store_experience(Experience(task="válida"))
+    memory._conn.execute(
+        "INSERT INTO experiences (created_at, task, embedding, embedding_model) VALUES (?, ?, ?, ?)",
+        ("2026-01-01T00:00:00+00:00", "corrompida", "not-json", "fake-bge-m3"),
+    )
+    memory._conn.commit()
+    results = memory.search_experiences("consulta")
+    assert results[0].task == "válida"
