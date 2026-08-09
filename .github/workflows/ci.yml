@@ -22,5 +22,59 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run unit tests
         run: python -m pytest -v
+
+  ollama-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama
+        run: |
+          ollama serve > /tmp/ollama.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:11434/api/tags >/dev/null && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:11434/api/tags >/dev/null
+
+      - name: Pull embedding model
+        run: ollama pull bge-m3:latest
+
+      - name: Validate embedding endpoint
+        run: |
+          python - <<'PY'
+          import json
+          import urllib.request
+
+          payload = json.dumps({
+              "model": "bge-m3:latest",
+              "input": "Zero-Agent semantic memory smoke test",
+          }).encode()
+          request = urllib.request.Request(
+              "http://127.0.0.1:11434/api/embed",
+              data=payload,
+              headers={"Content-Type": "application/json"},
+          )
+          with urllib.request.urlopen(request, timeout=120) as response:
+              data = json.load(response)
+          embeddings = data.get("embeddings")
+          assert isinstance(embeddings, list) and embeddings
+          assert isinstance(embeddings[0], list) and embeddings[0]
+          assert all(isinstance(value, (int, float)) for value in embeddings[0])
+          print(f"BGE-M3 embedding dimension: {len(embeddings[0])}")
+          PY
