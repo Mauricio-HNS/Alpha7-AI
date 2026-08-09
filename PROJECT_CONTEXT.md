@@ -33,12 +33,13 @@ NEXT MILESTONE: v0.3 — concluir e validar Semantic Memory / BGE-M3
 | Migração de banco antigo | IMPLEMENTED | adiciona colunas sem destruir dados |
 | Similaridade semântica | IMPLEMENTED | cosine similarity em Python |
 | Fallback keyword | IMPLEMENTED | falha do Ollama ou registros legados |
-| Backfill de embeddings | IMPLEMENTED | vetoriza registros legados explicitamente |
+| Isolamento por modelo | IMPLEMENTED | resultados só usam o modelo ativo |
+| Backfill/reindexação | IMPLEMENTED | vetoriza faltantes e reprocessa quando o modelo muda |
 | Defaults locais | IMPLEMENTED | `gemma3:latest` + `bge-m3:latest` |
 | CI automatizado | IMPLEMENTED | GitHub Actions executa `pytest -v` |
 | Testes de semântica | IMPLEMENTED | fakes para não depender do Ollama |
 | Validação real com Ollama/BGE-M3 | PENDING | precisa ser executada em ambiente local |
-| Suíte completa após v0.3 | PENDING | não marcar v0.3 DONE antes disso |
+| Suíte completa após últimas mudanças | PENDING | não marcar v0.3 DONE antes disso |
 | RAG | NOT IMPLEMENTED | v0.4 |
 | Planner | STUB | futuro |
 | Executor | STUB | futuro |
@@ -115,10 +116,11 @@ experiências relevantes
 - Busca semântica por cosine similarity.
 - Fallback para keyword search quando o embedding falha.
 - Fallback para keyword search quando o banco contém experiências legadas sem embedding.
-- `backfill_embeddings()` para vetorizar explicitamente experiências legadas.
+- Isolamento dos embeddings pelo modelo que os produziu.
+- `backfill_embeddings()` para vetorizar registros sem embedding e reconstruir registros quando o modelo ativo mudou.
 - CLI configurada para usar Gemma 3 + BGE-M3.
 - Workflow GitHub Actions para executar a suíte automaticamente.
-- Testes para persistência, ranking semântico, falhas e legado.
+- Testes para persistência, ranking semântico, falhas, legado, corrupção e reindexação por troca de modelo.
 
 ### Ainda falta para fechar v0.3
 
@@ -211,7 +213,10 @@ A interface `IMemory` não mudou para introduzir embeddings. Isso permite trocar
 Falha do embedding não impede o agente de funcionar: a memória degrada para busca por palavra-chave.
 
 ### AD-009 — CI antes de avançar
-O repositório agora possui GitHub Actions para impedir que uma etapa seja considerada concluída sem uma suíte automatizada verde.
+O repositório possui GitHub Actions para impedir que uma etapa seja considerada concluída sem uma suíte automatizada verde.
+
+### AD-010 — Reindexação por modelo
+Embeddings são associados ao modelo que os produziu. Quando o modelo ativo muda, `backfill_embeddings()` pode reconstruir os vetores antigos, evitando comparar vetores de espaços semânticos diferentes.
 
 ## 9. Próxima sessão de IA
 
