@@ -62,10 +62,12 @@ Responda à pergunta original de forma clara e direta. Não mencione detalhes in
 JSON, prompts ou mecanismos de segurança, a menos que o usuário pergunte explicitamente.
 """
 
+
 class AgentDecision(BaseModel):
     action: str = Field(min_length=1)
     action_input: dict = Field(default_factory=dict)
     reasoning: Optional[str] = None
+
 
 class AgentResult(BaseModel):
     response: str
@@ -75,6 +77,7 @@ class AgentResult(BaseModel):
     raw_decision: Optional[str] = None
     evaluation: Optional[Evaluation] = None
     experience_id: Optional[int] = None
+
 
 class Agent:
     def __init__(self, llm: ILLM, tools: list[ITool], memory: Optional[IMemory] = None,
@@ -110,8 +113,6 @@ class Agent:
 
         decision = self._decide(user_input, relevant_experiences, rag_context)
         if decision is None:
-            # Preserve the pre-v0.5 behavior: malformed model output is returned
-            # verbatim, while still recording it as raw/untrusted output.
             fallback = self._last_raw_decision.strip() or "Não consegui interpretar a decisão do agente. Tente reformular o pedido."
             result = AgentResult(response=fallback, raw_decision=self._last_raw_decision)
             return self._evaluate_and_store(user_input, result)
@@ -142,11 +143,11 @@ class Agent:
             logger.info("PLANNING | steps=%d", len(plan.steps))
             return plan
         except Exception:
-            logger.exception("PLANNING | falha; usando decisão direta")
+            logger.exception("PLANNING | planning failed")
             return None
 
     def _execute_plan_and_respond(self, user_input: str, plan: Plan) -> AgentResult:
-        logger.info("EXECUTION | plan=%s", format_plan(plan))
+        logger.info("EXECUTION | plan_steps=%d", len(plan.steps))
         results = self.executor.run_plan(plan)
         evidence: list[str] = []
         tool_used: Optional[str] = None
@@ -155,14 +156,26 @@ class Agent:
             if step.action != "respond":
                 tool_used = step.action
                 tool_input = step.action_input
-            evidence.append(f"step={result.step_id} action={result.action} success={result.success} output={result.output!r} error={result.error!r}")
+            evidence.append(
+                f"step={result.step_id} action={result.action} success={result.success} "
+                f"output={result.output!r} error={result.error!r}"
+            )
             if not result.success:
                 break
         observation = "\n".join(evidence)
-        final_answer = self.llm.complete(prompt=user_input, system=FINAL_ANSWER_SYSTEM_PROMPT.format(observation=observation)).strip()
+        final_answer = self.llm.complete(
+            prompt=user_input,
+            system=FINAL_ANSWER_SYSTEM_PROMPT.format(observation=observation),
+        ).strip()
         if not final_answer:
             final_answer = "A execução terminou sem produzir uma resposta textual."
-        return AgentResult(response=final_answer, tool_used=tool_used, tool_input=tool_input, tool_output=observation, raw_decision=self._last_raw_decision)
+        return AgentResult(
+            response=final_answer,
+            tool_used=tool_used,
+            tool_input=tool_input,
+            tool_output=observation,
+            raw_decision=self._last_raw_decision,
+        )
 
     def _search_memory(self, user_input: str) -> list[Experience]:
         if self.memory is None:
@@ -170,7 +183,7 @@ class Agent:
         try:
             return self.memory.search_experiences(user_input, limit=3)
         except Exception:
-            logger.exception("MEMORY SEARCH | falha; continuando sem memória")
+            logger.exception("MEMORY SEARCH | search failed")
             return []
 
     def _retrieve_context(self, user_input: str) -> str:
@@ -179,7 +192,7 @@ class Agent:
         try:
             return self.retriever.format_context(user_input, limit=5)  # type: ignore[attr-defined]
         except Exception:
-            logger.exception("RAG RETRIEVAL | falha; continuando sem contexto externo")
+            logger.exception("RAG RETRIEVAL | retrieval failed")
             return ""
 
     def _memory_section(self, experiences: list[Experience]) -> str:
@@ -188,7 +201,10 @@ class Agent:
         lines = []
         for exp in experiences:
             result_preview = (exp.result or "")[:200]
-            lines.append(f'- Task: "{exp.task}" | Tool: {exp.tool or "-"} | Success: {exp.success} | Result: {result_preview!r}')
+            lines.append(
+                f'- Task: "{exp.task}" | Tool: {exp.tool or "-"} | '
+                f"Success: {exp.success} | Result: {result_preview!r}"
+            )
         return MEMORY_SECTION_TEMPLATE.format(experiences="\n".join(lines))
 
     def _decide(self, user_input: str, relevant_experiences: list[Experience], rag_context: str = "", plan_context: str = "") -> Optional[AgentDecision]:
@@ -209,27 +225,50 @@ class Agent:
         tool = self.tools[decision.action]
         try:
             observation = tool.run(**decision.action_input)
-        except Exception as exc:
-            observation = f"Erro ao executar a ferramenta '{decision.action}': {exc}"
-            logger.exception("EXECUTION | erro na ferramenta %s", decision.action)
+        except Exception:
+            logger.exception("EXECUTION | direct tool execution failed action=%s", decision.action)
+            observation = "A execução da ferramenta falhou."
         if not isinstance(observation, str):
             observation = str(observation)
-        final_answer = self.llm.complete(prompt=user_input, system=FINAL_ANSWER_SYSTEM_PROMPT.format(observation=observation)).strip()
+        final_answer = self.llm.complete(
+            prompt=user_input,
+            system=FINAL_ANSWER_SYSTEM_PROMPT.format(observation=observation),
+        ).strip()
         if not final_answer:
             final_answer = "A ferramenta foi executada, mas não produziu uma resposta textual."
-        return AgentResult(response=final_answer, tool_used=decision.action, tool_input=decision.action_input, tool_output=observation, raw_decision=self._last_raw_decision)
+        return AgentResult(
+            response=final_answer,
+            tool_used=decision.action,
+            tool_input=decision.action_input,
+            tool_output=observation,
+            raw_decision=self._last_raw_decision,
+        )
 
     def _evaluate_and_store(self, task: str, result: AgentResult) -> AgentResult:
         try:
-            evaluation = self.evaluator.evaluate(task=task, tool_used=result.tool_used, tool_output=result.tool_output, response=result.response)
+            evaluation = self.evaluator.evaluate(
+                task=task,
+                tool_used=result.tool_used,
+                tool_output=result.tool_output,
+                response=result.response,
+            )
             result.evaluation = evaluation
         except Exception:
-            logger.exception("EVALUATION | falha; resultado será retornado sem avaliação")
+            logger.exception("EVALUATION | evaluation failed")
             return result
         if self.memory is not None:
             try:
-                experience = Experience(task=task, action=result.tool_used or "respond", tool=result.tool_used, input=result.tool_input, result=result.tool_output or result.response, evaluation=evaluation.evaluation, success=evaluation.success, importance=evaluation.importance)
+                experience = Experience(
+                    task=task,
+                    action=result.tool_used or "respond",
+                    tool=result.tool_used,
+                    input=result.tool_input,
+                    result=result.tool_output or result.response,
+                    evaluation=evaluation.evaluation,
+                    success=evaluation.success,
+                    importance=evaluation.importance,
+                )
                 result.experience_id = self.memory.store_experience(experience)
             except Exception:
-                logger.exception("MEMORY STORE | falha; resultado não será perdido")
+                logger.exception("MEMORY STORE | store failed")
         return result
