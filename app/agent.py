@@ -7,6 +7,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
+from app.config import settings
 from app.evaluator import Evaluation, IEvaluator, SimpleEvaluator
 from app.llm import ILLM
 from app.memory import Experience, IMemory
@@ -105,6 +106,10 @@ class Agent:
         user_input = user_input.strip()
         if not user_input:
             return AgentResult(response="O pedido não pode estar vazio.")
+        if len(user_input) > settings.max_input_chars:
+            return AgentResult(
+                response=f"O pedido excede o limite de {settings.max_input_chars} caracteres."
+            )
 
         logger.info("PERCEPTION | input_length=%d", len(user_input))
         relevant_experiences = self._search_memory(user_input)
@@ -218,6 +223,8 @@ class Agent:
             observation = f"A ferramenta falhou: {type(exc).__name__}: {exc}"
             logger.exception("EXECUTION | erro na ferramenta %s", decision.action)
 
+        if not isinstance(observation, str):
+            observation = str(observation)
         logger.info("OBSERVATION | output_chars=%d", len(observation))
         final_system_prompt = FINAL_ANSWER_SYSTEM_PROMPT.format(observation=observation)
         final_answer = self.llm.complete(prompt=user_input, system=final_system_prompt)
