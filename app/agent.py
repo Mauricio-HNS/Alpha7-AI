@@ -12,7 +12,7 @@ from app.evaluator import Evaluation, IEvaluator, SimpleEvaluator
 from app.executor import IExecutor, ToolExecutor
 from app.llm import ILLM
 from app.memory import Experience, IMemory
-from app.planner import IPlanner, Plan, format_plan
+from app.planner import IPlanner, Plan
 from app.rag import IRetriever
 from app.tools.base import ITool
 
@@ -80,9 +80,16 @@ class AgentResult(BaseModel):
 
 
 class Agent:
-    def __init__(self, llm: ILLM, tools: list[ITool], memory: Optional[IMemory] = None,
-                 evaluator: Optional[IEvaluator] = None, retriever: Optional[IRetriever] = None,
-                 planner: Optional[IPlanner] = None, executor: Optional[IExecutor] = None) -> None:
+    def __init__(
+        self,
+        llm: ILLM,
+        tools: list[ITool],
+        memory: Optional[IMemory] = None,
+        evaluator: Optional[IEvaluator] = None,
+        retriever: Optional[IRetriever] = None,
+        planner: Optional[IPlanner] = None,
+        executor: Optional[IExecutor] = None,
+    ) -> None:
         self.llm = llm
         self.tools: dict[str, ITool] = {tool.name: tool for tool in tools}
         self.memory = memory
@@ -140,6 +147,11 @@ class Agent:
                 context["rag"] = rag_context[:settings.max_context_chars]
             plan = self.planner.plan(user_input, context)
             plan.validate_sequence()
+            if len(plan.steps) > settings.max_steps:
+                raise ValueError("Plano excede o limite configurado de passos")
+            for step in plan.steps:
+                if step.action != "respond" and step.action not in self.tools:
+                    raise ValueError("Plano contém uma ferramenta não permitida")
             logger.info("PLANNING | steps=%d", len(plan.steps))
             return plan
         except Exception:
@@ -226,7 +238,7 @@ class Agent:
         try:
             observation = tool.run(**decision.action_input)
         except Exception:
-            logger.exception("EXECUTION | direct tool execution failed action=%s", decision.action)
+            logger.exception("EXECUTION | direct tool execution failed")
             observation = "A execução da ferramenta falhou."
         if not isinstance(observation, str):
             observation = str(observation)
