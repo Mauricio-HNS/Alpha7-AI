@@ -1,5 +1,7 @@
 # Zero-Agent
 
+-->> O Zero-Agent está sendo construído para transformar modelos de IA em agentes capazes de executar trabalho de desenvolvimento de software de forma progressivamente autônoma.
+
 Sistema de agente de IA construído do zero, em Python, sem frameworks de agentes. O objetivo é entender e implementar manualmente os mecanismos fundamentais de um agente antes de comparar com soluções prontas.
 
 Este projeto evolui em estágios pequenos e versionados. Cada estágio precisa funcionar, ter testes, documentação e servir de base para o próximo.
