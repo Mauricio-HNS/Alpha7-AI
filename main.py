@@ -7,6 +7,7 @@ from app.evaluator import SimpleEvaluator
 from app.llm import OllamaProvider
 from app.logging_config import setup_logging
 from app.memory import OllamaEmbedder, SQLiteMemory
+from app.planner import LLMPlanner
 from app.tools.filesystem import FileSystemTool
 
 
@@ -19,14 +20,15 @@ def build_agent() -> Agent:
     tools = [FileSystemTool(root_dir=".")]
     memory = SQLiteMemory(db_path=settings.memory_db_path, embedder=embedder)
     evaluator = SimpleEvaluator()
-    return Agent(llm=llm, tools=tools, memory=memory, evaluator=evaluator)
+    planner = LLMPlanner(llm, max_steps=settings.max_steps)
+    return Agent(llm=llm, tools=tools, memory=memory, evaluator=evaluator, planner=planner)
 
 
 def main() -> None:
     setup_logging()
     agent = build_agent()
 
-    print("Zero-Agent v0.3")
+    print("Zero-Agent v0.5")
     print(
         f"Modelo: {settings.ollama_model} | Embeddings: {settings.embedding_model} | "
         f"Ollama: {settings.ollama_base_url}"

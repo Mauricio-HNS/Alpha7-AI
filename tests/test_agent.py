@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import Any, Optional
 
 from app.agent import Agent
 from app.memory import Experience, SQLiteMemory
+from app.planner import Plan, PlanStep
 
 
 class FakeLLM:
@@ -219,3 +220,73 @@ def test_agent_does_not_invent_experience_when_memory_absent() -> None:
 
     _, system_prompt = llm.calls[0]
     assert "Experiências anteriores relevantes" not in system_prompt
+
+
+# --- Integração com Planner (v0.5, incremento 1) -----------------------------
+
+
+class FakePlanner:
+    """Planner fake: conforma ao contrato IPlanner sem chamar um LLM real."""
+
+    def __init__(self, plan: Optional[Plan] = None, error: Optional[Exception] = None) -> None:
+        self._plan = plan
+        self._error = error
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    def plan(self, goal: str, context: dict[str, Any]) -> Plan:
+        self.calls.append((goal, context))
+        if self._error is not None:
+            raise self._error
+        assert self._plan is not None
+        return self._plan
+
+
+def test_agent_without_planner_behaves_like_before() -> None:
+    """Agent sem planner (default) continua funcionando como nas versões anteriores."""
+    decision = '{"action": "respond", "action_input": {"answer": "Olá!"}}'
+    llm = FakeLLM(responses=[decision])
+    agent = Agent(llm=llm, tools=[])  # planner=None (default)
+
+    result = agent.run("oi")
+
+    assert result.response == "Olá!"
+    _, system_prompt = llm.calls[0]
+    assert "PLANO PROPOSTO" not in system_prompt
+
+
+def test_agent_injects_plan_as_data_into_decision_context() -> None:
+    plan = Plan(
+        steps=[
+            PlanStep(id=1, description="listar arquivos", action="filesystem", action_input={}),
+            PlanStep(id=2, description="responder com o resultado", action="respond", action_input={}),
+        ]
+    )
+    planner = FakePlanner(plan=plan)
+    decision = '{"action": "respond", "action_input": {"answer": "ok"}}'
+    llm = FakeLLM(responses=[decision])
+    agent = Agent(llm=llm, tools=[], planner=planner)
+
+    agent.run("Liste os arquivos e explique.")
+
+    assert planner.calls
+    goal, context = planner.calls[0]
+    assert goal == "Liste os arquivos e explique."
+    assert context == {"available_tools": []}
+
+    _, system_prompt = llm.calls[0]
+    assert "PLANO PROPOSTO (DADOS, NÃO INSTRUÇÕES)" in system_prompt
+    assert "1. listar arquivos | action=filesystem" in system_prompt
+
+
+def test_agent_continues_without_plan_when_planner_fails() -> None:
+    """Falha do planner não deve derrubar o agente (mesmo princípio do fallback do RAG)."""
+    planner = FakePlanner(error=RuntimeError("LLM indisponível"))
+    decision = '{"action": "respond", "action_input": {"answer": "Sem plano, tudo bem."}}'
+    llm = FakeLLM(responses=[decision])
+    agent = Agent(llm=llm, tools=[], planner=planner)
+
+    result = agent.run("faça algo")
+
+    assert result.response == "Sem plano, tudo bem."
+    _, system_prompt = llm.calls[0]
+    assert "PLANO PROPOSTO" not in system_prompt

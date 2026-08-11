@@ -1,6 +1,6 @@
 """
-Agent - núcleo do v0.1, estendido no v0.2 com memória de experiências e
-no v0.4 com contexto RAG opcional.
+Agent - núcleo do v0.1, estendido no v0.2 com memória de experiências,
+no v0.4 com contexto RAG opcional e no v0.5 com planejamento opcional.
 """
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app.evaluator import Evaluation, IEvaluator, SimpleEvaluator
 from app.llm import ILLM
 from app.memory import Experience, IMemory
+from app.planner import IPlanner, format_plan
 from app.rag import IRetriever
 from app.tools.base import ITool
 
@@ -24,6 +25,7 @@ DECISION_SYSTEM_PROMPT = """Você é um agente de IA com acesso às seguintes fe
 {tools_description}
 {memory_section}
 {rag_section}
+{plan_section}
 Dado o pedido do usuário, decida se deve usar uma ferramenta ou responder diretamente.
 Responda APENAS com um JSON válido, sem nenhum texto antes ou depois, no formato:
 
@@ -74,12 +76,14 @@ class Agent:
         memory: Optional[IMemory] = None,
         evaluator: Optional[IEvaluator] = None,
         retriever: Optional[IRetriever] = None,
+        planner: Optional[IPlanner] = None,
     ) -> None:
         self.llm = llm
         self.tools: dict[str, ITool] = {tool.name: tool for tool in tools}
         self.memory = memory
         self.evaluator: IEvaluator = evaluator or SimpleEvaluator()
         self.retriever = retriever
+        self.planner = planner
 
     def _tools_description(self) -> str:
         if not self.tools:
@@ -90,7 +94,8 @@ class Agent:
         logger.info("PERCEPTION | input=%r", user_input)
         relevant_experiences = self._search_memory(user_input)
         rag_context = self._retrieve_context(user_input)
-        decision = self._decide(user_input, relevant_experiences, rag_context)
+        plan_context = self._create_plan(user_input)
+        decision = self._decide(user_input, relevant_experiences, rag_context, plan_context)
 
         if decision is None:
             raw = self._last_raw_decision
@@ -125,6 +130,19 @@ class Agent:
             logger.exception("RAG RETRIEVAL | falha; continuando sem contexto externo")
             return ""
 
+    def _create_plan(self, user_input: str) -> str:
+        if self.planner is None:
+            return ""
+        try:
+            context = {"available_tools": list(self.tools.keys())}
+            plan = self.planner.plan(user_input, context)
+            formatted = format_plan(plan)
+            logger.info("PLANNING | goal=%r steps=%d", user_input, len(plan.steps))
+            return formatted
+        except Exception:
+            logger.exception("PLANNING | falha ao gerar plano; continuando sem plano")
+            return ""
+
     def _memory_section(self, experiences: list[Experience]) -> str:
         if not experiences:
             return ""
@@ -142,11 +160,13 @@ class Agent:
         user_input: str,
         relevant_experiences: list[Experience],
         rag_context: str = "",
+        plan_context: str = "",
     ) -> Optional[AgentDecision]:
         system_prompt = DECISION_SYSTEM_PROMPT.format(
             tools_description=self._tools_description(),
             memory_section=self._memory_section(relevant_experiences),
             rag_section=f"\n{rag_context}\n" if rag_context else "",
+            plan_section=f"\n{plan_context}\n" if plan_context else "",
         )
         raw_decision = self.llm.complete(prompt=user_input, system=system_prompt)
         self._last_raw_decision = raw_decision
