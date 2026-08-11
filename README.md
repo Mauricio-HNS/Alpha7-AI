@@ -12,8 +12,8 @@ Este projeto evolui em estágios pequenos e versionados. Cada estágio precisa f
 v0.1  Agent básico                    [DONE]
 v0.2  Experience Memory               [DONE]
 v0.3  Semantic Memory / BGE-M3        [DONE]
-v0.4  RAG                             [IN PROGRESS]
-v0.5  Planning                        [TODO]
+v0.4  RAG                             [DONE]
+v0.5  Planning                        [IN PROGRESS]
 v0.6  Evaluation / Reflection         [TODO]
 v0.7  Autonomous loops                [TODO]
 v0.8  Multi-agent                     [TODO]
@@ -29,6 +29,39 @@ v5.x  Custom architectures            [TODO]
 **Regra do roadmap:** uma etapa só pode virar `[DONE]` depois de código real,
 testes passando e documentação atualizada. Ao concluir, marque a etapa como
 `[DONE]` e a seguinte como `[NEXT]` em `README.md` e `PROJECT_CONTEXT.md`.
+
+## v0.5 — Planning
+
+Planejamento explícito, desacoplado de execução: o planner transforma um
+objetivo em uma sequência pequena e ordenada de passos, mas não executa
+nada — isso continua sendo responsabilidade de um Executor real, ainda não
+construído.
+
+```
+Objetivo
+ ↓
+LLMPlanner (mesmo contrato ILLM do Agent)
+ ↓
+JSON validado (Pydantic)
+ ↓
+Plan { steps }
+ ↓
+formatado como DADOS, NÃO INSTRUÇÕES
+ ↓
+injetado no prompt de decisão do Agent (opcional)
+```
+
+Implementado nesta etapa inicial:
+
+- `IPlanner`, `Plan`, `PlanStep` e `LLMPlanner` em `app/planner.py`;
+- plano gerado como JSON validado (IDs sequenciais, máximo de 10 passos);
+- `format_plan()` rotula o plano como **DADOS, NÃO INSTRUÇÕES**;
+- `Agent(planner=...)` opcional, injeta o plano no prompt de decisão sem executá-lo;
+- Agent informa ao planner os nomes reais das ferramentas disponíveis;
+- falha do planner não derruba o Agent (mesmo fallback seguro do RAG);
+- `main.py` conecta o planner usando `MAX_STEPS` já existente em `app/config.py`.
+
+Ainda falta: um Executor real capaz de rodar os passos de um plano.
 
 ## v0.4 — RAG
 
@@ -98,8 +131,7 @@ Já implementado nesta etapa:
 ## O que ainda não existe
 
 - RAG completo com persistência de documentos
-- Planner real
-- Executor real
+- Executor real (capaz de rodar múltiplos passos de um plano)
 - Reflection
 - Autonomous loops
 - Multi-agent
@@ -120,6 +152,7 @@ Já implementado nesta etapa:
 - `SimpleEvaluator`
 - `IEmbedder` + `OllamaEmbedder`
 - `Document` + `InMemoryRetriever`
+- `IPlanner` + `LLMPlanner` (planejamento opcional, ainda sem execução)
 - Logging estruturado
 - Testes automatizados
 

@@ -17,6 +17,7 @@ v0.1: DONE
 v0.2: DONE
 v0.3: DONE
 v0.4: DONE
+v0.5: IN PROGRESS
 NEXT MILESTONE: v0.5
 ```
 
@@ -46,8 +47,9 @@ NEXT MILESTONE: v0.5
 | RAG: recuperação vetorial | IMPLEMENTED | `InMemoryRetriever` + cosine similarity |
 | RAG: contexto no Agent | IMPLEMENTED | retriever opcional no núcleo do Agent |
 | RAG persistente | TODO | próximo incremento do v0.4 |
-| Planner | STUB | futuro |
-| Executor | STUB | futuro |
+| `IPlanner` / `LLMPlanner` | IMPLEMENTED | `app/planner.py`, plano JSON validado com Pydantic |
+| `Agent(planner=...)` | IMPLEMENTED | plano injetado no prompt de decisão como DATA, opcional, fail-safe |
+| Executor real (executa múltiplos passos de um plano) | STUB | `app/executor.py`; ainda sem lógica real |
 | Reflection | NOT IMPLEMENTED | futuro |
 | Autonomous loops | NOT IMPLEMENTED | futuro |
 | Multi-agent | NOT IMPLEMENTED | futuro |
@@ -61,7 +63,7 @@ v0.1  Agent básico                    [DONE]
 v0.2  Experience Memory               [DONE]
 v0.3  Semantic Memory / BGE-M3        [DONE]
 v0.4  RAG                             [DONE]
-v0.5  Planning                        [NEXT]
+v0.5  Planning                        [IN PROGRESS]
 v0.6  Evaluation / Reflection         [TODO]
 v0.7  Autonomous loops                [TODO]
 v0.8  Multi-agent                     [TODO]
@@ -193,7 +195,78 @@ Agent / LLM
 5. O Agent deve aceitar um retriever opcional sem quebrar os fluxos existentes.
 6. O Stage Gate deve executar testes específicos de RAG antes de promover v0.4.
 
-## 6. Arquitetura atual
+## 6. v0.5 — Planning
+
+### Objetivo
+
+Introduzir planejamento explícito, mantendo planejamento e execução
+desacoplados: o Planner transforma um objetivo em uma sequência pequena e
+ordenada de passos, mas não executa nada. Execução de múltiplos passos
+continua sendo responsabilidade de um Executor real, ainda não construído.
+
+```text
+Objetivo do usuário
+   ↓
+LLMPlanner (mesmo contrato ILLM do Agent)
+   ↓
+JSON validado (Pydantic)
+   ↓
+Plan { steps: [PlanStep, ...] }
+   ↓
+format_plan() → texto rotulado DADOS, NÃO INSTRUÇÕES
+   ↓
+injetado no prompt de decisão do Agent (opcional)
+```
+
+### Implementado neste incremento
+
+- `IPlanner`, `Plan`, `PlanStep` e `LLMPlanner` em `app/planner.py`.
+- Plano gerado como JSON estruturado, validado com Pydantic (`id` sequencial
+  começando em 1, `action`, `action_input`, máximo de 10 passos).
+- `format_plan()` formata o plano como texto rotulado
+  **DADOS, NÃO INSTRUÇÕES**, no mesmo padrão usado pela memória e pelo RAG.
+- `Agent(planner=...)` opcional: quando presente, o Agent gera um plano antes
+  de decidir a próxima ação e injeta esse plano no prompt de decisão como
+  contexto adicional — sem executar os passos do plano.
+- O Agent informa ao planner os nomes reais das ferramentas disponíveis
+  (`available_tools`), para que os passos gerados referenciem ações
+  executáveis.
+- Falha do planner não derruba o Agent: ele continua sem plano (mesmo
+  princípio de fallback seguro do RAG, ver AD-008).
+- `main.py` conecta `LLMPlanner(llm, max_steps=settings.max_steps)` ao
+  `Agent` construído pela CLI, dando uso real ao `MAX_STEPS` que já existia
+  em `app/config.py`.
+- Testes para parsing de plano ordenado, rejeição de IDs não sequenciais,
+  JSON inválido, limite de passos e rotulagem como DATA (`tests/test_planner.py`).
+- Testes de integração no Agent: plano injetado no prompt de decisão,
+  compatibilidade quando não há planner, e degradação segura quando o
+  planner falha (`tests/test_agent.py`).
+
+### Próximos incrementos do v0.5
+
+- `Executor` real capaz de rodar os passos de um `Plan` sequencialmente,
+  reutilizando as ferramentas do Agent.
+- Repasse de falhas parciais entre passos (um passo falhar não deve
+  necessariamente invalidar o plano inteiro).
+- Replanejamento quando um passo falha ou o resultado diverge do esperado.
+- Critério explícito de quando vale a pena planejar vs. responder
+  diretamente (hoje o Agent sempre planeja quando há planner configurado).
+- Gate de aceitação de planejamento no GitHub Actions.
+
+### Critérios de fechamento
+
+1. `pytest -v` deve terminar sem falhas.
+2. O plano deve ser validado (JSON bem formado, IDs sequenciais, limite de
+   passos) antes de ser usado.
+3. O plano deve ser tratado como DATA no prompt do Agent, nunca como
+   instrução executada automaticamente.
+4. O Agent deve aceitar um planner opcional sem quebrar os fluxos
+   existentes (v0.1-v0.4).
+5. Falha do planner não deve impedir o Agent de responder.
+6. Um Executor real, capaz de rodar múltiplos passos de um plano, precisa
+   existir e estar testado antes de promover v0.5 para `[DONE]`.
+
+## 7. Arquitetura atual
 
 ```text
 User
@@ -210,6 +283,9 @@ Agent
  │    ├── cosine similarity
  │    └── relevance threshold / top-k
  │
+ ├── LLMPlanner (opcional)
+ │    └── Plan { steps } → format_plan() → DATA no prompt de decisão
+ │
  ↓
 LLM / Gemma 3
  ↓
@@ -224,9 +300,9 @@ SQLiteMemory.store_experience
 Response
 ```
 
-O `Agent` continua dependente somente de `IMemory` e, agora, de um `IRetriever` opcional. A introdução de RAG não acopla o núcleo a Ollama, banco vetorial ou framework de agentes.
+O `Agent` continua dependente somente de `IMemory` e, agora, de um `IRetriever` e um `IPlanner` opcionais. A introdução de RAG e de planejamento não acopla o núcleo a Ollama, banco vetorial ou framework de agentes. O plano gerado ainda não é executado passo a passo — ele apenas informa a decisão imediata do Agent; a execução de múltiplos passos depende de um Executor real (v0.5, próximo incremento).
 
-## 7. Stage Gate
+## 8. Stage Gate
 
 O validador está em `scripts/stage_gate.py`.
 
@@ -235,11 +311,17 @@ O validador está em `scripts/stage_gate.py`.
 - Exige a suíte completa de testes.
 - Para v0.3, exige também resposta real do endpoint `/api/embed` com `bge-m3:latest`.
 - Para v0.4, deve exigir os testes específicos de RAG antes da promoção.
+- v0.5 ainda **não** está em `SUPPORTED_GATES`: o Stage Gate bloqueia a
+  promoção automática (`exit 2`) de propósito, porque os critérios de
+  fechamento do v0.5 incluem um Executor real que ainda não existe. Isso é
+  esperado e correto — não adicionar v0.5 a `SUPPORTED_GATES` com um gate
+  raso (ex.: só rodar `tests/test_planner.py`) apenas para destravar o CI,
+  pois isso promoveria a etapa para `DONE` antes de estar completa.
 - Só modifica `PROJECT_CONTEXT.md` depois de todos os critérios passarem.
 - O workflow `.github/workflows/stage-gate.yml` executa automaticamente em pushes para `main`.
 - A promoção automática gera um commit separado com `[skip ci]` para evitar loop.
 
-## 8. Princípios
+## 9. Princípios
 
 1. Simplicidade antes de abstração excessiva.
 2. Compreensão antes de frameworks.
@@ -255,7 +337,7 @@ O validador está em `scripts/stage_gate.py`.
 12. Recuperação semântica deve possuir um critério explícito de relevância.
 13. Nenhuma etapa é promovida sem validação automatizada correspondente.
 
-## 9. Ambiente local conhecido
+## 10. Ambiente local conhecido
 
 ```text
 OS: macOS
@@ -268,7 +350,7 @@ Embeddings: bge-m3:latest
 
 Nenhuma credencial, token ou senha deve ser versionada.
 
-## 10. Decisões relevantes
+## 11. Decisões relevantes
 
 ### AD-001 — Python
 Escolhido para agentes, embeddings, PyTorch, Transformers e pesquisa experimental.
@@ -305,3 +387,9 @@ O primeiro RAG usa chunking e índice em memória para manter o mecanismo visív
 
 ### AD-012 — RAG como dependência opcional
 O `Agent` recebe `IRetriever` opcional. Isso mantém os fluxos v0.1-v0.3 compatíveis e permite substituir o índice sem alterar o núcleo de decisão.
+
+### AD-013 — Planner desacoplado de execução
+`LLMPlanner` produz um `Plan` validado, mas não executa nenhum passo. O `Agent` injeta o plano formatado como contexto (DATA) na mesma decisão única que já existia, em vez de passar a rodar um loop multi-passo. Isso evita acoplar planejamento e execução antes de existir um Executor real, seguindo o mesmo espírito da AD-006.
+
+### AD-014 — Plano como dependência opcional, com fallback seguro
+O `Agent` recebe `IPlanner` opcional, no mesmo padrão de `IMemory` e `IRetriever` (AD-007, AD-012). Falha ao gerar um plano não impede o Agent de responder: ele registra a falha via log e continua sem plano, mesmo princípio de degradação segura da AD-008.
