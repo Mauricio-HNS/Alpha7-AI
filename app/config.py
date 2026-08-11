@@ -16,6 +16,7 @@ class Settings(BaseModel):
     memory_db_path: str = "data/memory.db"
     semantic_min_score: float = Field(default=0.35, ge=-1.0, le=1.0)
     max_input_chars: int = Field(default=12_000, ge=1_000, le=100_000)
+    max_context_chars: int = Field(default=20_000, ge=1_000, le=100_000)
 
     @field_validator("ollama_base_url")
     @classmethod
@@ -49,6 +50,7 @@ def load_settings() -> Settings:
         memory_db_path=os.getenv("MEMORY_DB_PATH", "data/memory.db"),
         semantic_min_score=float(os.getenv("SEMANTIC_MIN_SCORE", "0.35")),
         max_input_chars=_env_int("MAX_INPUT_CHARS", "12000"),
+        max_context_chars=_env_int("MAX_CONTEXT_CHARS", "20000"),
     )
 
 
