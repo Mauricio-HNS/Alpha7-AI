@@ -61,17 +61,13 @@ class ToolExecutor:
             if not isinstance(output, str):
                 output = str(output)
             logger.info(
-                "EXECUTOR | step=%d action=%s output_chars=%d",
+                "EXECUTOR | step=%d tool_executed output_chars=%d",
                 step.id,
-                step.action,
                 len(output),
             )
             return StepResult(step_id=step.id, action=step.action, output=output, success=True)
         except Exception:
-            # Full exception details remain available to server-side logging only.
-            # Never propagate exception text because it may contain paths, credentials,
-            # connection strings, provider responses, or other implementation details.
-            logger.exception("EXECUTOR | step=%d action=%s failed", step.id, step.action)
+            logger.exception("EXECUTOR | step=%d tool_execution_failed", step.id)
             return StepResult(
                 step_id=step.id,
                 action=step.action,
