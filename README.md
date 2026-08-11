@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="ativos/logotipo-agente-zero.svg" alt="Zero-Agent">
-</p>
-
 # Zero-Agent
 
 ## From AI Models to Autonomous Software Agents
