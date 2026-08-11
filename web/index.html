@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zero-Agent</title>
+  <link rel="stylesheet" href="/web/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">Z</div><div><strong>Zero-Agent</strong><span>Local AI Agent</span></div></div>
+      <button id="newChat" class="new-chat">+ Nova conversa</button>
+      <div class="sidebar-section"><span>CAPACIDADES</span><div class="capability">● Memória semântica</div><div class="capability">● RAG</div><div class="capability">● Ferramentas</div><div class="capability">● Ollama local</div></div>
+      <div class="sidebar-bottom"><div class="status-dot"></div><div><strong>Local</strong><span>Ollama conectado</span></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div><span class="eyebrow">ZERO-AGENT</span><h1>Converse com seu agente</h1></div></header>
+      <section id="messages" class="messages">
+        <div class="welcome"><div class="welcome-icon">Z</div><h2>O que podemos construir?</h2><p>Seu agente local com memória, RAG e ferramentas.</p><div class="suggestions"><button data-prompt="Explique como funciona a memória semântica deste agente.">Memória semântica</button><button data-prompt="Explique o que é RAG e como este projeto usa embeddings.">RAG e embeddings</button><button data-prompt="Quais ferramentas você consegue usar neste projeto?">Ferramentas</button></div></div>
+      </section>
+      <div class="composer-wrap"><form id="chatForm" class="composer"><textarea id="prompt" rows="1" placeholder="Pergunte qualquer coisa ao Zero-Agent..."></textarea><button id="send" type="submit" aria-label="Enviar">↗</button></form><div class="hint">Zero-Agent roda localmente através do Ollama.</div></div>
+    </main>
+  </div>
+  <script src="/web/app.js"></script>
+</body>
+</html>
