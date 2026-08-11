@@ -48,20 +48,36 @@ class ToolExecutor:
 
         tool = self.tools.get(step.action)
         if tool is None:
-            error = f"Ferramenta '{step.action}' não existe."
-            logger.warning("EXECUTOR | step=%d %s", step.id, error)
-            return StepResult(step_id=step.id, action=step.action, success=False, error=error)
+            logger.warning("EXECUTOR | step=%d action_unavailable", step.id)
+            return StepResult(
+                step_id=step.id,
+                action=step.action,
+                success=False,
+                error="Ferramenta indisponível.",
+            )
 
         try:
             output = tool.run(**step.action_input)
             if not isinstance(output, str):
                 output = str(output)
-            logger.info("EXECUTOR | step=%d action=%s output_chars=%d", step.id, step.action, len(output))
+            logger.info(
+                "EXECUTOR | step=%d action=%s output_chars=%d",
+                step.id,
+                step.action,
+                len(output),
+            )
             return StepResult(step_id=step.id, action=step.action, output=output, success=True)
-        except Exception as exc:
-            error = f"{type(exc).__name__}: {exc}"
-            logger.exception("EXECUTOR | step=%d action=%s falhou", step.id, step.action)
-            return StepResult(step_id=step.id, action=step.action, success=False, error=error)
+        except Exception:
+            # Full exception details remain available to server-side logging only.
+            # Never propagate exception text because it may contain paths, credentials,
+            # connection strings, provider responses, or other implementation details.
+            logger.exception("EXECUTOR | step=%d action=%s failed", step.id, step.action)
+            return StepResult(
+                step_id=step.id,
+                action=step.action,
+                success=False,
+                error="A execução da ferramenta falhou.",
+            )
 
     def run_plan(self, plan: Plan) -> list[StepResult]:
         plan.validate_sequence()
@@ -75,14 +91,14 @@ class ToolExecutor:
                     results.append(
                         StepResult(step_id=step.id, action=step.action, success=False, error=error)
                     )
-                    logger.warning("EXECUTOR | %s", error)
+                    logger.warning("EXECUTOR | tool_call_limit_reached")
                     break
                 tool_calls += 1
 
             result = self.execute(step)
             results.append(result)
             if not result.success:
-                logger.warning("EXECUTOR | plano interrompido no passo %d", step.id)
+                logger.warning("EXECUTOR | plan_stopped step=%d", step.id)
                 break
 
         return results
