@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/zero-agent-cover.svg" alt="Zero-Agent">
+  <img src="ativos/logotipo-agente-zero.svg" alt="Zero-Agent">
 </p>
 
 # Zero-Agent
