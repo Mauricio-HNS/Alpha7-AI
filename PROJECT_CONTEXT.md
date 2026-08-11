@@ -49,7 +49,8 @@ NEXT MILESTONE: v0.5
 | RAG persistente | TODO | próximo incremento do v0.4 |
 | `IPlanner` / `LLMPlanner` | IMPLEMENTED | `app/planner.py`, plano JSON validado com Pydantic |
 | `Agent(planner=...)` | IMPLEMENTED | plano injetado no prompt de decisão como DATA, opcional, fail-safe |
-| Executor real (executa múltiplos passos de um plano) | STUB | `app/executor.py`; ainda sem lógica real |
+| `IExecutor` / `ToolExecutor` | IMPLEMENTED | `app/executor.py`; executa `Plan.steps` contra as ferramentas do Agent, fail-fast |
+| Execução automática do plano dentro do `Agent.run()` | TODO | Executor existe e está testado isoladamente, mas ainda não é chamado pelo Agent |
 | Reflection | NOT IMPLEMENTED | futuro |
 | Autonomous loops | NOT IMPLEMENTED | futuro |
 | Multi-agent | NOT IMPLEMENTED | futuro |
@@ -241,11 +242,23 @@ injetado no prompt de decisão do Agent (opcional)
 - Testes de integração no Agent: plano injetado no prompt de decisão,
   compatibilidade quando não há planner, e degradação segura quando o
   planner falha (`tests/test_agent.py`).
+- `IExecutor` e `ToolExecutor` em `app/executor.py`: executam um `PlanStep`
+  contra as ferramentas registradas (mesmo dicionário `ITool` do Agent) e
+  também um `Plan` inteiro, passo a passo, parando no primeiro passo que
+  falhar (fail-fast) — sem repasse de falha parcial ou replanejamento ainda.
+- `StepResult` (Pydantic) reporta `success`, `output` e `error` de cada
+  passo executado.
+- Testes cobrindo execução de passo com ferramenta, passo `respond` sem
+  ferramenta, ferramenta inexistente, exceção da ferramenta capturada como
+  falha, execução de plano em ordem e interrupção no primeiro passo que
+  falha (`tests/test_executor.py`).
 
 ### Próximos incrementos do v0.5
 
-- `Executor` real capaz de rodar os passos de um `Plan` sequencialmente,
-  reutilizando as ferramentas do Agent.
+- Ligar o `Executor` ao `Agent` para rodar plano completo automaticamente
+  (hoje ambos existem e são testados, mas de forma desacoplada — o Agent
+  ainda decide uma ação por vez, sem consumir o `Plan` gerado além de
+  usá-lo como contexto).
 - Repasse de falhas parciais entre passos (um passo falhar não deve
   necessariamente invalidar o plano inteiro).
 - Replanejamento quando um passo falha ou o resultado diverge do esperado.
@@ -264,7 +277,9 @@ injetado no prompt de decisão do Agent (opcional)
    existentes (v0.1-v0.4).
 5. Falha do planner não deve impedir o Agent de responder.
 6. Um Executor real, capaz de rodar múltiplos passos de um plano, precisa
-   existir e estar testado antes de promover v0.5 para `[DONE]`.
+   existir e estar testado — feito em `app/executor.py`. Falta decidir e
+   implementar como (e se) o `Agent` passa a chamá-lo automaticamente antes
+   de promover v0.5 para `[DONE]`.
 
 ## 7. Arquitetura atual
 
@@ -393,3 +408,9 @@ O `Agent` recebe `IRetriever` opcional. Isso mantém os fluxos v0.1-v0.3 compat�
 
 ### AD-014 — Plano como dependência opcional, com fallback seguro
 O `Agent` recebe `IPlanner` opcional, no mesmo padrão de `IMemory` e `IRetriever` (AD-007, AD-012). Falha ao gerar um plano não impede o Agent de responder: ele registra a falha via log e continua sem plano, mesmo princípio de degradação segura da AD-008.
+
+### AD-015 — Executor real, mas ainda desacoplado do Agent
+`ToolExecutor` sabe rodar um `PlanStep` ou um `Plan` inteiro contra as ferramentas registradas, mas o `Agent.run()` ainda não o chama. Promover o Executor de stub para implementação real não significa automaticamente ligar o loop de execução multi-passo — essa é uma decisão arquitetural maior (como e quando o Agent decide seguir um plano completo vs. decidir uma ação por vez) e fica para um incremento dedicado.
+
+### AD-016 — Falha em um passo interrompe o plano (fail-fast)
+A primeira versão do `Executor` para no primeiro passo que falhar, sem tentar contornar ou pular passos. Repasse de falha parcial e replanejamento dependem de mais contexto sobre como o Agent vai consumir os resultados, então ficam para depois — evita adivinhar uma política de recuperação de erro antes de ter um caso de uso real.

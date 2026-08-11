@@ -59,9 +59,14 @@ Implementado nesta etapa inicial:
 - `Agent(planner=...)` opcional, injeta o plano no prompt de decisão sem executá-lo;
 - Agent informa ao planner os nomes reais das ferramentas disponíveis;
 - falha do planner não derruba o Agent (mesmo fallback seguro do RAG);
-- `main.py` conecta o planner usando `MAX_STEPS` já existente em `app/config.py`.
+- `main.py` conecta o planner usando `MAX_STEPS` já existente em `app/config.py`;
+- `IExecutor` + `ToolExecutor` em `app/executor.py`: executam um passo ou um
+  plano inteiro contra as ferramentas do Agent, parando no primeiro passo
+  que falhar (fail-fast).
 
-Ainda falta: um Executor real capaz de rodar os passos de um plano.
+Ainda falta: ligar o Executor ao `Agent` para rodar um plano completo
+automaticamente — hoje Planner e Executor existem e são testados, mas
+continuam desacoplados.
 
 ## v0.4 — RAG
 
@@ -131,7 +136,7 @@ Já implementado nesta etapa:
 ## O que ainda não existe
 
 - RAG completo com persistência de documentos
-- Executor real (capaz de rodar múltiplos passos de um plano)
+- Execução automática de um plano completo dentro do `Agent.run()`
 - Reflection
 - Autonomous loops
 - Multi-agent
@@ -152,7 +157,8 @@ Já implementado nesta etapa:
 - `SimpleEvaluator`
 - `IEmbedder` + `OllamaEmbedder`
 - `Document` + `InMemoryRetriever`
-- `IPlanner` + `LLMPlanner` (planejamento opcional, ainda sem execução)
+- `IPlanner` + `LLMPlanner` (planejamento opcional, ainda sem execução automática)
+- `IExecutor` + `ToolExecutor` (executa passos de um plano, ainda desacoplado do Agent)
 - Logging estruturado
 - Testes automatizados
 
