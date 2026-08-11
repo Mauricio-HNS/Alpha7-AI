@@ -1,28 +1,117 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
   <title id="title">Zero-Agent logo</title>
   <desc id="desc">A premium chrome emblem representing an ascent beyond Earth, with a split orbital ring and a spacecraft-like central silhouette.</desc>
+
   <defs>
-    <linearGradient id="chrome" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4a4f55"/><stop offset="0.18" stop-color="#ffffff"/><stop offset="0.36" stop-color="#9aa0a6"/><stop offset="0.52" stop-color="#ffffff"/><stop offset="0.72" stop-color="#565b61"/><stop offset="0.9" stop-color="#f7f7f7"/><stop offset="1" stop-color="#73787e"/></linearGradient>
-    <linearGradient id="chromeVertical" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5b6167"/><stop offset="0.28" stop-color="#ffffff"/><stop offset="0.5" stop-color="#858b91"/><stop offset="0.72" stop-color="#ffffff"/><stop offset="1" stop-color="#4d5359"/></linearGradient>
-    <linearGradient id="ship" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.2" stop-color="#cfd4d8"/><stop offset="0.48" stop-color="#4b5157"/><stop offset="0.72" stop-color="#15191d"/><stop offset="1" stop-color="#aeb4b9"/></linearGradient>
-    <radialGradient id="glow"><stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="0.25" stop-color="#ffffff" stop-opacity="0.28"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
-    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="7"/></filter>
-    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#000" flood-opacity="0.85"/></filter>
+    <linearGradient id="chrome" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4a4f55"/>
+      <stop offset="0.18" stop-color="#ffffff"/>
+      <stop offset="0.36" stop-color="#9aa0a6"/>
+      <stop offset="0.52" stop-color="#ffffff"/>
+      <stop offset="0.72" stop-color="#565b61"/>
+      <stop offset="0.9" stop-color="#f7f7f7"/>
+      <stop offset="1" stop-color="#73787e"/>
+    </linearGradient>
+
+    <linearGradient id="chromeVertical" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5b6167"/>
+      <stop offset="0.28" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#858b91"/>
+      <stop offset="0.72" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#4d5359"/>
+    </linearGradient>
+
+    <linearGradient id="ship" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.2" stop-color="#cfd4d8"/>
+      <stop offset="0.48" stop-color="#4b5157"/>
+      <stop offset="0.72" stop-color="#15191d"/>
+      <stop offset="1" stop-color="#aeb4b9"/>
+    </linearGradient>
+
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="0.25" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="7"/>
+    </filter>
+
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#000" flood-opacity="0.85"/>
+    </filter>
   </defs>
+
   <rect width="1200" height="1200" fill="#000"/>
+
+  <!-- Subtle emblem glow -->
   <circle cx="600" cy="500" r="300" fill="url(#glow)" opacity="0.16" filter="url(#softGlow)"/>
-  <path d="M 561 173 A 290 290 0 1 0 639 173" fill="none" stroke="#11161a" stroke-width="25" stroke-linecap="round" opacity="0.9"/>
-  <path d="M 561 173 A 290 290 0 1 0 639 173" fill="none" stroke="url(#chrome)" stroke-width="15" stroke-linecap="round" filter="url(#shadow)"/>
-  <path d="M 562 176 A 287 287 0 1 0 638 176" fill="none" stroke="#ffffff" stroke-opacity="0.65" stroke-width="2.5" stroke-linecap="round"/>
-  <path d="M 390 548 Q 600 456 810 548 Q 600 503 390 548 Z" fill="#0b0e11" opacity="0.95"/>
-  <path d="M 388 548 Q 600 454 812 548" fill="none" stroke="url(#chrome)" stroke-width="4"/>
-  <path d="M 600 104 C 590 145 579 210 570 286 C 563 348 559 408 548 445 C 540 472 523 492 505 506 C 529 501 555 490 574 470 C 588 455 594 435 600 407 C 606 435 612 455 626 470 C 645 490 671 501 695 506 C 677 492 660 472 652 445 C 641 408 637 348 630 286 C 621 210 610 145 600 104 Z" fill="url(#ship)" stroke="#ffffff" stroke-width="2.5" filter="url(#shadow)"/>
+
+  <!-- Outer orbital ring: intentionally open at the top -->
+  <path d="M 561 173 A 290 290 0 1 0 639 173"
+        fill="none" stroke="#11161a" stroke-width="25" stroke-linecap="round" opacity="0.9"/>
+  <path d="M 561 173 A 290 290 0 1 0 639 173"
+        fill="none" stroke="url(#chrome)" stroke-width="15" stroke-linecap="round"
+        filter="url(#shadow)"/>
+
+  <!-- Inner highlight -->
+  <path d="M 562 176 A 287 287 0 1 0 638 176"
+        fill="none" stroke="#ffffff" stroke-opacity="0.65" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Earth horizon -->
+  <path d="M 390 548 Q 600 456 810 548 Q 600 503 390 548 Z"
+        fill="#0b0e11" opacity="0.95"/>
+  <path d="M 388 548 Q 600 454 812 548"
+        fill="none" stroke="url(#chrome)" stroke-width="4"/>
+
+  <!-- Stylized ascent / spacecraft silhouette -->
+  <path d="M 600 104
+           C 590 145 579 210 570 286
+           C 563 348 559 408 548 445
+           C 540 472 523 492 505 506
+           C 529 501 555 490 574 470
+           C 588 455 594 435 600 407
+           C 606 435 612 455 626 470
+           C 645 490 671 501 695 506
+           C 677 492 660 472 652 445
+           C 641 408 637 348 630 286
+           C 621 210 610 145 600 104 Z"
+        fill="url(#ship)" stroke="#ffffff" stroke-width="2.5" filter="url(#shadow)"/>
+
+  <!-- Central seam -->
   <path d="M 600 108 L 600 489" stroke="#ffffff" stroke-opacity="0.72" stroke-width="2"/>
+
+  <!-- Launch point -->
   <ellipse cx="600" cy="535" rx="85" ry="38" fill="url(#glow)" filter="url(#softGlow)"/>
   <circle cx="600" cy="535" r="8" fill="#ffffff"/>
-  <text x="600" y="790" text-anchor="middle" font-family="Montserrat, Orbitron, Arial, sans-serif" font-size="82" font-weight="500" letter-spacing="12" fill="url(#chromeVertical)">ZERO-AGENT</text>
+
+  <!-- Wordmark -->
+  <text x="600" y="790"
+        text-anchor="middle"
+        font-family="Montserrat, Orbitron, Arial, sans-serif"
+        font-size="82"
+        font-weight="500"
+        letter-spacing="12"
+        fill="url(#chromeVertical)">ZERO-AGENT</text>
+
+  <!-- Divider -->
   <line x1="160" y1="844" x2="1040" y2="844" stroke="url(#chrome)" stroke-width="1.5"/>
   <circle cx="600" cy="844" r="5" fill="#ffffff"/>
-  <text x="600" y="895" text-anchor="middle" font-family="Montserrat, Arial, sans-serif" font-size="18" letter-spacing="8" fill="#aeb4b9">BUILDING INTELLIGENCE. EXPANDING POSSIBILITIES.</text>
-  <text x="600" y="940" text-anchor="middle" font-family="Montserrat, Arial, sans-serif" font-size="20" letter-spacing="10" fill="#c7cbd0">BEYOND EARTH.</text>
+
+  <!-- Tagline -->
+  <text x="600" y="895"
+        text-anchor="middle"
+        font-family="Montserrat, Arial, sans-serif"
+        font-size="18"
+        letter-spacing="8"
+        fill="#aeb4b9">BUILDING INTELLIGENCE. EXPANDING POSSIBILITIES.</text>
+
+  <text x="600" y="940"
+        text-anchor="middle"
+        font-family="Montserrat, Arial, sans-serif"
+        font-size="20"
+        letter-spacing="10"
+        fill="#c7cbd0">BEYOND EARTH.</text>
 </svg>
