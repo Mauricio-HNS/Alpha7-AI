@@ -118,9 +118,8 @@ class Agent:
         decision = self._decide(user_input, relevant_experiences, rag_context, plan_context)
 
         if decision is None:
-            response = "Não consegui interpretar a decisão do modelo. Tente novamente."
-            logger.warning("REASONING | decisão inválida; recusando fallback para saída bruta do modelo")
-            result = AgentResult(response=response, raw_decision=self._last_raw_decision)
+            logger.warning("REASONING | decisão inválida; usando resposta textual de fallback")
+            result = AgentResult(response=self._last_raw_decision, raw_decision=self._last_raw_decision)
             return self._evaluate_and_store(user_input, result)
 
         if decision.action == "respond":
