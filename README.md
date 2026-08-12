@@ -71,16 +71,17 @@ See the detailed [architecture overview](docs/portfolio/ARCHITECTURE.md).
 | Experience Memory | Done |
 | Semantic Memory / BGE-M3 | Done |
 | Retrieval-Augmented Generation | Done |
-| Explicit Planning | In progress |
-| Plan Execution | Implemented, integration pending |
+| Explicit Planning | Done |
+| Plan Execution | Done |
+| Planner → Executor integration | Done |
 | Evaluation / Reflection | Next |
 | Autonomous Loops | Planned |
 | Multi-Agent | Planned |
 | Multimodal | Planned |
 
-### v0.5 — Planning
+### v0.5 — Planning + Execution
 
-The planner transforms a goal into a bounded, validated sequence of steps without executing those steps itself.
+The planner transforms a goal into a bounded, validated sequence of steps. The executor then runs those steps against the registered tools, stopping safely on the first failure.
 
 Implemented:
 
@@ -92,9 +93,12 @@ Implemented:
 - real tool names supplied to the planner;
 - safe planner fallback when planning fails;
 - `IExecutor` and `ToolExecutor` for single-step and full-plan execution;
-- fail-fast execution when a step fails.
+- fail-fast execution when a step fails;
+- automatic Planner → Executor integration when an executable plan is available;
+- final LLM response grounded in the actual execution results;
+- integration tests covering successful workflows and execution failures.
 
-The current boundary is intentional: Planner and Executor are tested independently, while automatic execution from `Agent` remains the next milestone.
+The next milestone is evaluation/reflection around complete workflows rather than adding more autonomy without validation.
 
 ## v0.4 — RAG
 
@@ -225,8 +229,8 @@ Integration tests should prefer mocks/fakes for deterministic local execution. R
 ## Roadmap
 
 ```text
-v0.5  Planning / execution integration
-v0.6  Evaluation + reflection
+v0.5  Planning + execution integration                 [DONE]
+v0.6  Evaluation + reflection                          [NEXT]
 v0.7  Bounded autonomous loops
 v0.8  Multi-agent orchestration
 v0.9  Multimodal capabilities
