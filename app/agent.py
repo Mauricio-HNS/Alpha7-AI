@@ -10,7 +10,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-from app.evaluator import Evaluation, IEvaluator, ReflectiveEvaluator, SimpleEvaluator
+from app.evaluator import Evaluation, IEvaluator, ReflectiveEvaluator, SimpleEvaluator, TOOL_ERROR_MARKER
 from app.executor import IExecutor, StepResult
 from app.llm import ILLM
 from app.memory import Experience, IMemory
@@ -280,7 +280,9 @@ class Agent:
     def _reflect_once(self, task: str, result: AgentResult, evaluation: Evaluation) -> Optional[Evaluation]:
         if not isinstance(self.evaluator, ReflectiveEvaluator):
             return None
-        if not evaluation.success or result.tool_output is None:
+        if evaluation.success or result.tool_output is None:
+            return None
+        if result.tool_output.startswith(TOOL_ERROR_MARKER):
             return None
 
         correction_prompt = REFLECTION_CORRECTION_PROMPT.format(
