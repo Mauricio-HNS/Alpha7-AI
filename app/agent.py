@@ -1,6 +1,6 @@
 """
-Agent - núcleo do v0.1, estendido no v0.2 com memória de experiências,
-no v0.4 com contexto RAG opcional e no v0.5 com planejamento e execução de planos.
+Agent - núcleo do Zero-Agent, com memória, RAG, planejamento, execução e
+reflexão opcional.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, ValidationError
 
-from app.evaluator import Evaluation, IEvaluator, SimpleEvaluator
+from app.evaluator import Evaluation, IEvaluator, ReflectiveEvaluator, SimpleEvaluator
 from app.executor import IExecutor, StepResult
 from app.llm import ILLM
 from app.memory import Experience, IMemory
@@ -64,6 +64,26 @@ Responda ao usuário usando os resultados reais. Seja claro e direto. Se a execu
 explique o que falhou sem inventar sucesso.
 """
 
+REFLECTION_CORRECTION_PROMPT = """Você é o módulo de reflexão do Zero-Agent.
+
+A resposta anterior foi avaliada como insuficiente.
+
+Objetivo original:
+{task}
+
+Resultado observável da ferramenta:
+{tool_output}
+
+Resposta anterior:
+{response}
+
+Avaliação:
+{evaluation}
+
+Produza uma resposta corrigida usando apenas os dados disponíveis. Não invente sucesso,
+não invente fatos e não mencione este processo de reflexão ao usuário.
+"""
+
 
 class AgentDecision(BaseModel):
     action: str
@@ -81,6 +101,7 @@ class AgentResult(BaseModel):
     experience_id: Optional[int] = None
     plan: Optional[Plan] = None
     plan_results: list[StepResult] = Field(default_factory=list)
+    reflected: bool = False
 
 
 class Agent:
@@ -256,6 +277,31 @@ class Agent:
             raw_decision=self._last_raw_decision,
         )
 
+    def _reflect_once(self, task: str, result: AgentResult, evaluation: Evaluation) -> Optional[Evaluation]:
+        if not isinstance(self.evaluator, ReflectiveEvaluator):
+            return None
+        if not evaluation.success or result.tool_output is None:
+            return None
+
+        correction_prompt = REFLECTION_CORRECTION_PROMPT.format(
+            task=task,
+            tool_output=result.tool_output,
+            response=result.response,
+            evaluation=evaluation.evaluation,
+        )
+        corrected_response = self.llm.complete(prompt=task, system=correction_prompt)
+        if not corrected_response.strip():
+            return None
+
+        result.response = corrected_response
+        result.reflected = True
+        return self.evaluator.evaluate(
+            task=task,
+            tool_used=result.tool_used,
+            tool_output=result.tool_output,
+            response=result.response,
+        )
+
     def _evaluate_and_store(self, task: str, result: AgentResult) -> AgentResult:
         evaluation = self.evaluator.evaluate(
             task=task,
@@ -263,6 +309,12 @@ class Agent:
             tool_output=result.tool_output,
             response=result.response,
         )
+
+        reflected_evaluation = self._reflect_once(task, result, evaluation)
+        if reflected_evaluation is not None:
+            evaluation = reflected_evaluation
+            logger.info("REFLECTION | bounded correction completed success=%s", evaluation.success)
+
         logger.info(
             "EVALUATION | success=%s importance=%.2f | %s",
             evaluation.success,
