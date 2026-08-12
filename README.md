@@ -2,7 +2,7 @@
 
 # Zero-Agent
 
-### From AI Models to Autonomous Software Agents
+### From AI Models to Goal-Oriented Software Agents
 
 Experimental agent architecture built from scratch in Python, focused on the engineering layer between an LLM and real-world work.
 
@@ -26,7 +26,7 @@ The model provides cognitive capability. Zero-Agent provides the surrounding run
 ```text
 AI Model
    +
-Memory + RAG + Planning + Tools + Execution + Evaluation
+Memory + RAG + Planning + Tools + Execution + Evaluation + Reflection
    =
 Goal-oriented AI Agent
 ```
@@ -58,7 +58,7 @@ Evaluation
   |
   +---- success ----> Result
   |
-  +---- failure ----> Correction -> Execution
+  +---- insufficient --> Bounded Reflection --> Result
 ```
 
 See the detailed [architecture overview](docs/portfolio/ARCHITECTURE.md).
@@ -74,12 +74,31 @@ See the detailed [architecture overview](docs/portfolio/ARCHITECTURE.md).
 | Explicit Planning | Done |
 | Plan Execution | Done |
 | Planner → Executor integration | Done |
-| Evaluation / Reflection | Next |
+| LLM Evaluation | Done |
+| Bounded Reflection | Done |
 | Autonomous Loops | Planned |
 | Multi-Agent | Planned |
 | Multimodal | Planned |
 
-### v0.5 — Planning + Execution
+### v0.6 — Evaluation + Bounded Reflection
+
+Zero-Agent can now evaluate an execution with an LLM-backed evaluator and perform at most one corrective response when the result is judged insufficient.
+
+Implemented:
+
+- structured `Evaluation` model with bounded importance scores;
+- `ReflectiveEvaluator` with JSON validation;
+- deterministic `SimpleEvaluator` retained as a safe fallback;
+- reflection uses the original task, observable tool output and previous response;
+- reflection never retries failed tool execution;
+- reflection is bounded to one correction attempt;
+- corrected responses are re-evaluated before being stored in memory;
+- CLI exposes when reflection occurred;
+- tests cover valid evaluation, fallback behavior and the complete reflection path.
+
+This milestone intentionally adds validation and correction before introducing open-ended autonomy.
+
+## v0.5 — Planning + Execution
 
 The planner transforms a goal into a bounded, validated sequence of steps. The executor then runs those steps against the registered tools, stopping safely on the first failure.
 
@@ -97,8 +116,6 @@ Implemented:
 - automatic Planner → Executor integration when an executable plan is available;
 - final LLM response grounded in the actual execution results;
 - integration tests covering successful workflows and execution failures.
-
-The next milestone is evaluation/reflection around complete workflows rather than adding more autonomy without validation.
 
 ## v0.4 — RAG
 
@@ -164,7 +181,7 @@ Run tests
        v
 Evaluate
        |
-       +---- failure --> correct --> test again
+       +---- insufficient --> reflect --> test again
        |
        v
 Validate
@@ -179,7 +196,7 @@ The objective is workflow automation, not simply code generation.
 
 - Model-agnostic provider boundary.
 - Explicit interfaces instead of framework-dependent magic.
-- Bounded execution and configurable limits.
+- Bounded execution and correction limits.
 - Structured validation between components.
 - Retrieved knowledge treated as data, not executable instructions.
 - Incremental milestones backed by code, tests and documentation.
@@ -230,7 +247,7 @@ Integration tests should prefer mocks/fakes for deterministic local execution. R
 
 ```text
 v0.5  Planning + execution integration                 [DONE]
-v0.6  Evaluation + reflection                          [NEXT]
+v0.6  Evaluation + bounded reflection                  [DONE]
 v0.7  Bounded autonomous loops
 v0.8  Multi-agent orchestration
 v0.9  Multimodal capabilities
