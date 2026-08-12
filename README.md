@@ -76,9 +76,26 @@ See the detailed [architecture overview](docs/portfolio/ARCHITECTURE.md).
 | Planner → Executor integration | Done |
 | LLM Evaluation | Done |
 | Bounded Reflection | Done |
+| Bounded Execution Limits | Done |
 | Autonomous Loops | Planned |
 | Multi-Agent | Planned |
 | Multimodal | Planned |
+
+### v0.7 — Bounded Execution Safety
+
+The runtime now has explicit safety limits before open-ended autonomy is introduced.
+
+Implemented:
+
+- configurable maximum plan steps;
+- configurable maximum tool calls per plan;
+- executor rejects oversized plans before executing tools;
+- executor stops safely when the tool-call budget is exhausted;
+- existing fail-fast behavior remains in place for tool failures;
+- CLI displays the active execution limits;
+- deterministic tests cover both limits.
+
+These constraints provide a controlled foundation for future autonomous loops without allowing an agent workflow to run indefinitely or consume an unbounded number of tool calls.
 
 ### v0.6 — Evaluation + Bounded Reflection
 
@@ -248,10 +265,11 @@ Integration tests should prefer mocks/fakes for deterministic local execution. R
 ```text
 v0.5  Planning + execution integration                 [DONE]
 v0.6  Evaluation + bounded reflection                  [DONE]
-v0.7  Bounded autonomous loops
-v0.8  Multi-agent orchestration
-v0.9  Multimodal capabilities
-v1.0  Stable agent architecture
+v0.7  Bounded execution safety                         [DONE]
+v0.8  Bounded autonomous loops
+v0.9  Multi-agent orchestration
+v1.0  Multimodal capabilities
+v1.1  Stable agent architecture
 v1.x  Local model experimentation
 v2.x  Fine-tuning experiments
 v3.x  PyTorch experiments
