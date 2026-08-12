@@ -1,12 +1,9 @@
 """
-Executor - responsável por executar os passos de um Plan (v0.5) usando as
-ferramentas registradas no Agent.
+Executor - executa planos com limites explícitos de segurança.
 
-O Executor não decide o que fazer (isso é papel do Planner) e não avalia o
-resultado final (isso é papel do Evaluator); ele só executa um passo por vez
-e reporta o que aconteceu. Falha em um passo interrompe o plano (fail-fast);
-repasse de falhas parciais e replanejamento ficam para um incremento futuro
-(ver PROJECT_CONTEXT.md, seção v0.5).
+O Executor não decide nem avalia; ele executa passos ordenados e reporta
+resultados. Limites de passos e chamadas de ferramentas evitam loops ou
+workflows acidentalmente grandes enquanto o projeto evolui para autonomia.
 """
 from __future__ import annotations
 
@@ -31,19 +28,26 @@ class StepResult(BaseModel):
 
 class IExecutor(Protocol):
     def execute(self, step: PlanStep) -> StepResult:
-        """Executa um único passo de um plano e retorna o resultado."""
+        """Executa um único passo de um plano."""
         ...
 
     def run_plan(self, plan: Plan) -> list[StepResult]:
-        """Executa os passos de um plano em ordem, parando na primeira falha."""
+        """Executa um plano respeitando os limites configurados."""
         ...
 
 
 class ToolExecutor:
-    """Executor real: roda cada PlanStep usando as ferramentas do Agent."""
+    """Executor real com limites de passos e chamadas de ferramentas."""
 
-    def __init__(self, tools: dict[str, ITool]) -> None:
+    def __init__(
+        self,
+        tools: dict[str, ITool],
+        max_steps: int = 5,
+        max_tool_calls: int = 10,
+    ) -> None:
         self.tools = tools
+        self.max_steps = max(1, min(max_steps, 10))
+        self.max_tool_calls = max(1, max_tool_calls)
 
     def execute(self, step: PlanStep) -> StepResult:
         if step.action == "respond":
@@ -67,14 +71,27 @@ class ToolExecutor:
 
     def run_plan(self, plan: Plan) -> list[StepResult]:
         results: list[StepResult] = []
+        tool_calls = 0
+
+        if len(plan.steps) > self.max_steps:
+            error = f"Plano excede o limite de {self.max_steps} passos."
+            logger.warning("EXECUTOR | %s", error)
+            return [StepResult(step_id=plan.steps[0].id, action="plan", success=False, error=error)]
+
         for step in plan.steps:
+            if step.action != "respond" and tool_calls >= self.max_tool_calls:
+                error = f"Limite de {self.max_tool_calls} chamadas de ferramentas atingido."
+                logger.warning("EXECUTOR | step=%d %s", step.id, error)
+                results.append(StepResult(step_id=step.id, action=step.action, success=False, error=error))
+                break
+
+            if step.action != "respond":
+                tool_calls += 1
+
             result = self.execute(step)
             results.append(result)
             if not result.success:
-                logger.warning(
-                    "EXECUTOR | plano interrompido no passo %d (falha); "
-                    "replanejamento e falhas parciais ficam para incremento futuro",
-                    step.id,
-                )
+                logger.warning("EXECUTOR | plano interrompido no passo %d (falha)", step.id)
                 break
+
         return results
