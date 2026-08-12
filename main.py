@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from app.agent import Agent
 from app.config import settings
-from app.evaluator import SimpleEvaluator
+from app.evaluator import ReflectiveEvaluator
 from app.executor import ToolExecutor
 from app.llm import OllamaProvider
 from app.logging_config import setup_logging
@@ -20,7 +20,7 @@ def build_agent() -> Agent:
     )
     tools = [FileSystemTool(root_dir=".")]
     memory = SQLiteMemory(db_path=settings.memory_db_path, embedder=embedder)
-    evaluator = SimpleEvaluator()
+    evaluator = ReflectiveEvaluator(llm)
     planner = LLMPlanner(llm, max_steps=settings.max_steps)
     executor = ToolExecutor({tool.name: tool for tool in tools})
     return Agent(
@@ -37,12 +37,12 @@ def main() -> None:
     setup_logging()
     agent = build_agent()
 
-    print("Zero-Agent v0.5")
+    print("Zero-Agent v0.6")
     print(
         f"Modelo: {settings.ollama_model} | Embeddings: {settings.embedding_model} | "
         f"Ollama: {settings.ollama_base_url}"
     )
-    print("Planner + Executor: enabled")
+    print("Planning + execution + bounded reflection enabled.")
     print("Digite 'sair' para encerrar.\n")
 
     while True:
@@ -60,11 +60,11 @@ def main() -> None:
         print(f"\nAgent: {result.response}\n")
         if result.plan_results:
             for step in result.plan_results:
-                status = "OK" if step.success else "FAILED"
-                print(f"[step {step.step_id}: {step.action} -> {status}]")
-            print()
-        elif result.tool_used:
-            print(f"[ferramenta usada: {result.tool_used}]\n")
+                status = "OK" if step.success else "FAIL"
+                print(f"[step {step.step_id}] {status} — {step.action}")
+        if result.reflected:
+            print("[reflection: resposta corrigida após avaliação]")
+        print()
 
 
 if __name__ == "__main__":
