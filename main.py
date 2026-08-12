@@ -22,12 +22,17 @@ def build_agent() -> Agent:
     memory = SQLiteMemory(db_path=settings.memory_db_path, embedder=embedder)
     evaluator = ReflectiveEvaluator(llm)
     planner = LLMPlanner(llm, max_steps=settings.max_steps)
-    executor = ToolExecutor({tool.name: tool for tool in tools})
+    executor = ToolExecutor(
+        {tool.name: tool for tool in tools},
+        max_steps=settings.max_steps,
+        max_tool_calls=settings.max_tool_calls,
+    )
     return Agent(
         llm=llm,
         tools=tools,
         memory=memory,
         evaluator=evaluator,
+        retriever=None,
         planner=planner,
         executor=executor,
     )
@@ -37,12 +42,15 @@ def main() -> None:
     setup_logging()
     agent = build_agent()
 
-    print("Zero-Agent v0.6")
+    print("Zero-Agent v0.7")
     print(
         f"Modelo: {settings.ollama_model} | Embeddings: {settings.embedding_model} | "
         f"Ollama: {settings.ollama_base_url}"
     )
-    print("Planning + execution + bounded reflection enabled.")
+    print(
+        f"Planning + execution + bounded reflection | "
+        f"limits: {settings.max_steps} steps / {settings.max_tool_calls} tool calls."
+    )
     print("Digite 'sair' para encerrar.\n")
 
     while True:
