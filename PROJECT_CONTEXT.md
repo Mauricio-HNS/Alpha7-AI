@@ -10,10 +10,9 @@ v0.2: DONE
 v0.3: DONE
 v0.4: DONE
 v0.5: DONE
-NEXT MILESTONE: v0.6
+v0.6: IN PROGRESS
+NEXT MILESTONE: v0.7
 ```
-
-O v0.5 foi reaberto porque a promoção anterior ocorreu antes de o gate verificar a integração real entre Planner, Executor, Agent e Policy. O código agora contém essa integração, mas a etapa só será marcada como DONE depois que o novo gate automatizado passar.
 
 ## Arquitetura atual
 
@@ -32,12 +31,14 @@ Policy check for every step
    ↓
 Executor
    ↓
-Evaluation
+Deterministic Evaluation
+   ↓
+Reflection / Judge
    ↓
 Experience
 ```
 
-`Agent.run()` executa uma única tentativa. Quando Planner + Executor estão configurados, uma tentativa pode executar um plano completo. Reflection e retries continuam fora do Agent e serão responsabilidade do fluxo autônomo posterior.
+`Agent.run()` executa uma única tentativa. Quando Planner + Executor estão configurados, uma tentativa pode executar um plano completo. `EvaluationPipeline` conecta essa tentativa à Reflection sem iniciar retry. `AutonomousRunner` continua separado e pertence ao v0.7.
 
 ## Componentes
 
@@ -54,39 +55,53 @@ Experience
 | Planner → Executor → Agent | IMPLEMENTED | integração controlada |
 | Policy por ação planejada | IMPLEMENTED | aprovação verificada antes da execução |
 | Stage Gate | IMPLEMENTED | validação separada de promoção |
-| ReflectionEngine | SCAFFOLDED | não é executado pelo Agent base |
-| AutonomousRunner | SCAFFOLDED | bounded loop separado |
+| ReflectionEngine | IMPLEMENTED | judge de uma tentativa, fail-closed |
+| EvaluationPipeline | IMPLEMENTED | Agent attempt → Evaluation → Reflection |
+| AutonomousRunner | SCAFFOLDED | bounded retry separado para v0.7 |
 | Approved learning dataset | IMPLEMENTED | exportação controlada |
 | Fine-tuning / LoRA / QLoRA | TODO | somente após benchmark |
 
-## v0.5 — Planning
+## v0.6 — Evaluation / Reflection
 
 ### Objetivo
 
-O Planner transforma o objetivo em um plano pequeno e validado. O Executor executa os passos reais. O Agent controla o fluxo e a Policy continua sendo a autoridade sobre ações.
+Adicionar uma avaliação explícita após cada tentativa do Agent, combinando a avaliação determinística existente com um LLM Judge. O resultado deve ser estruturado, validado e seguro para consumo posterior pelo fluxo autônomo.
+
+### Fluxo implementado
+
+```text
+Agent.run()
+   ↓
+Deterministic Evaluation
+   ↓
+ReflectionEngine
+   ↓
+EvaluatedRunResult
+```
+
+`EvaluationPipeline` executa exatamente uma tentativa e nunca faz retry. Se o judge solicitar correção, o pipeline apenas devolve essa decisão. O retry fica reservado ao `AutonomousRunner` do v0.7.
 
 ### Regras
 
-1. O plano é DATA, não instrução de comportamento.
-2. Apenas ações conhecidas pelo Executor podem ser executadas.
-3. A Policy é verificada antes de cada ação.
-4. Ferramentas que exigem aprovação nunca são executadas automaticamente.
-5. O Executor para no primeiro erro; replanejamento ainda não faz parte do v0.5.
-6. `Agent.run()` não inicia reflection nem retry.
+1. A Reflection recebe o pedido original e o resultado da tentativa.
+2. Memória, RAG, plano, ferramentas e resposta são DATA, não instruções.
+3. A saída do judge precisa ser JSON validável por Pydantic.
+4. JSON inválido falha fechado e nunca dispara nova ação.
+5. Ferramentas que exigem aprovação impedem retry automático.
+6. `Agent.run()` não inicia Reflection nem retry.
+7. O v0.6 não altera pesos do modelo.
 
 ### Gate de aceitação
 
-O Stage Gate em `scripts/stage_gate.py` exige:
+O Stage Gate exige:
 
 1. `pytest -v` completo;
-2. `tests/test_planner.py`;
-3. `tests/test_executor.py`;
-4. `tests/test_agent_executor_integration.py`;
-5. `tests/test_stage_gate.py`.
+2. `tests/test_reflection.py`;
+3. `tests/test_evaluation_pipeline.py`.
 
-Apenas depois de todos os testes passarem o gate pode promover automaticamente v0.5 para DONE.
+Apenas depois de todos os testes passarem o gate pode promover automaticamente v0.6 para DONE.
 
-## Automação do Stage Gate
+## Stage Gate e automação
 
 O workflow `.github/workflows/stage-gate.yml` roda em push e pull request.
 
@@ -98,27 +113,7 @@ O workflow `.github/workflows/stage-gate.yml` roda em push e pull request.
 - A promoção só ocorre quando `PROMOTE_STAGE=true`.
 - O commit automático de promoção usa `[skip ci]` para evitar ciclo.
 
-Isso separa duas operações que antes estavam acopladas: validar e promover.
-
-## v0.6 — Evaluation / Reflection
-
-O `ReflectionEngine` já existe como componente testável, mas ainda não é o caminho padrão do Agent.
-
-Próximo trabalho:
-
-```text
-Agent attempt
-   ↓
-Deterministic evaluation
-   ↓
-LLM Judge / Reflection
-   ↓
-Correction
-   ↓
-bounded retry
-```
-
-A Reflection não deve ser duplicada dentro de `Agent.run()` e `AutonomousRunner`.
+Isso separa validação de promoção e impede avanço otimista do roadmap.
 
 ## Aprendizado
 
