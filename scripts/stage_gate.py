@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTEXT = ROOT / "PROJECT_CONTEXT.md"
-SUPPORTED_GATES = {"v0.1", "v0.2", "v0.3", "v0.4", "v0.5"}
+SUPPORTED_GATES = {"v0.1", "v0.2", "v0.3", "v0.4", "v0.5", "v0.6"}
 ORDER = ["v0.1", "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7", "v0.8", "v0.9", "v1.0"]
 
 
@@ -115,8 +115,6 @@ def main() -> int:
         run(sys.executable, "-m", "pytest", "-v", "tests/test_rag.py")
 
     if stage == "v0.5":
-        # v0.5 is only accepted when planning is integrated with the real
-        # executor and policy checks, not merely tested in isolation.
         run(
             sys.executable,
             "-m",
@@ -126,6 +124,9 @@ def main() -> int:
             "tests/test_executor.py",
             "tests/test_agent_executor_integration.py",
         )
+
+    if stage == "v0.6":
+        run(sys.executable, "-m", "pytest", "-v", "tests/test_reflection.py", "tests/test_evaluation_pipeline.py")
 
     promote = os.getenv("PROMOTE_STAGE", "false").lower() == "true"
     if not promote:
