@@ -1,5 +1,9 @@
 """
 Agent - núcleo do v0.1, estendido com memória, RAG, planejamento e policy.
+
+A execução normal do Agent é uma única tentativa. Reflexão e retries ficam
+fora do núcleo e são coordenados por AutonomousRunner, evitando loops duplos e
+mantendo compatibilidade com o contrato original do Agent.
 """
 from __future__ import annotations
 
@@ -95,43 +99,13 @@ class Agent:
         return "\n".join(f"- {t.name}: {t.description}" for t in self.tools.values())
 
     def run(self, user_input: str) -> AgentResult:
-        """Run one attempt and, when configured, reflect and retry safely."""
-        current_input = user_input
-        last_result: Optional[AgentResult] = None
+        """Execute exatamente uma tentativa.
 
-        for attempt in range(1, self.policy.max_iterations + 1):
-            result = self._run_once(current_input)
-            last_result = result
-
-            # Approval-required actions are intentionally terminal.
-            if result.approval_required:
-                return result
-
-            from app.reflection import ReflectionEngine
-
-            reflection = ReflectionEngine(self.llm, policy=self.policy).reflect(user_input, result)
-            logger.info(
-                "REFLECTION | attempt=%d success=%s score=%.2f retry=%s",
-                attempt,
-                reflection.success,
-                reflection.score,
-                reflection.retry,
-            )
-
-            if reflection.success or not reflection.retry or attempt >= self.policy.max_iterations:
-                return result
-
-            correction = reflection.correction.strip()
-            if not correction:
-                return result
-
-            current_input = (
-                f"Tarefa original:\n{user_input}\n\n"
-                f"Correção determinada pelo judge:\n{correction}\n\n"
-                "Execute novamente a tarefa aplicando somente essa correção."
-            )
-
-        return last_result or AgentResult(response="Não foi possível executar a tarefa.")
+        Retries e reflexão são responsabilidade de ``AutonomousRunner``.
+        Isso mantém Agent.run determinístico e compatível com os fluxos
+        anteriores, além de evitar que reflexão seja executada duas vezes.
+        """
+        return self._run_once(user_input)
 
     def _run_once(self, user_input: str) -> AgentResult:
         logger.info("PERCEPTION | input=%r", user_input)
@@ -233,12 +207,33 @@ class Agent:
 
         final_system_prompt = FINAL_ANSWER_SYSTEM_PROMPT.format(observation=observation)
         final_answer = self.llm.complete(prompt=user_input, system=final_system_prompt)
-        return AgentResult(response=final_answer, tool_used=decision.action, tool_input=decision.action_input, tool_output=observation, raw_decision=self._last_raw_decision)
+        return AgentResult(
+            response=final_answer,
+            tool_used=decision.action,
+            tool_input=decision.action_input,
+            tool_output=observation,
+            raw_decision=self._last_raw_decision,
+        )
 
     def _evaluate_and_store(self, task: str, result: AgentResult) -> AgentResult:
-        evaluation = self.evaluator.evaluate(task=task, tool_used=result.tool_used, tool_output=result.tool_output, response=result.response)
+        evaluation = self.evaluator.evaluate(
+            task=task,
+            tool_used=result.tool_used,
+            tool_output=result.tool_output,
+            response=result.response,
+        )
         result.evaluation = evaluation
         if self.memory is not None:
-            experience = Experience(task=task, action=result.tool_used or "respond", tool=result.tool_used, input=result.tool_input, result=result.tool_output or result.response, evaluation=evaluation.evaluation, success=evaluation.success, importance=evaluation.importance, metadata={"approval_required": result.approval_required})
+            experience = Experience(
+                task=task,
+                action=result.tool_used or "respond",
+                tool=result.tool_used,
+                input=result.tool_input,
+                result=result.tool_output or result.response,
+                evaluation=evaluation.evaluation,
+                success=evaluation.success,
+                importance=evaluation.importance,
+                metadata={"approval_required": result.approval_required},
+            )
             result.experience_id = self.memory.store_experience(experience)
         return result
