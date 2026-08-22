@@ -1,6 +1,6 @@
-# PROJECT_CONTEXT.md — Zero-Agent
+# PROJECT_CONTEXT.md — Alpha7 AI
 
-> Fonte de verdade do estado real do projeto. Este arquivo deve refletir o código e os gates automatizados, não intenções futuras.
+> Fonte de verdade do estado real do projeto. Este arquivo deve refletir o código, os testes e os gates automatizados — não intenções futuras.
 
 ## Product direction
 
@@ -14,16 +14,21 @@ A platform for building, executing, controlling and auditing autonomous AI agent
 Core promise:
 Autonomy without losing control.
 
-Commercial name:
-NOT YET SELECTED
+Repository:
+Alpha7-AI
 ```
 
-`Zero-Agent` remains the repository and working name until a commercial brand is researched and selected. The final name must be checked for company, product, GitHub, domain and trademark conflicts before adoption.
+Detalhes de produto e branding permanecem em `docs/PRODUCT_VISION.md` e `docs/BRANDING.md`.
 
-Detailed product and branding decisions are documented in:
+## Engineering contract
 
-- `docs/PRODUCT_VISION.md`
-- `docs/BRANDING.md`
+O estado do Alpha7 deve ser determinado por evidência técnica.
+
+```text
+CODE → TEST → FIX → RETEST → AUDIT → DOCUMENT → GATE → APPROVE
+```
+
+Nenhuma capacidade ou milestone deve ser promovido apenas porque existe no roadmap ou porque uma interface foi criada.
 
 ## Estado atual
 
@@ -37,6 +42,8 @@ v0.6: DONE
 v0.7: IN PROGRESS
 NEXT MILESTONE: v0.8
 ```
+
+O estado acima deve ser alterado somente após validação do código, testes e Stage Gate.
 
 ## Arquitetura atual
 
@@ -62,48 +69,30 @@ Reflection / Judge
 Experience
 ```
 
-`Agent.run()` executa uma única tentativa. Quando Planner + Executor estão configurados, uma tentativa pode executar um plano completo. `EvaluationPipeline` conecta essa tentativa à Reflection sem iniciar retry. `AutonomousRunner` é separado e pertence ao v0.7.
+`Agent.run()` executa uma tentativa. `EvaluationPipeline` conecta a tentativa à avaliação/reflection. `AutonomousRunner` é responsável pelo loop bounded do v0.7.
 
-## Componentes
+## Componentes auditados
 
-| Componente | Status | Observação |
+| Componente | Estado | Regra |
 |---|---|---|
-| Ollama / ILLM | IMPLEMENTED | inferência local |
+| Ollama / ILLM | IMPLEMENTED | deve permanecer validado por testes |
 | Agent | IMPLEMENTED | contexto, planejamento, execução e avaliação |
 | FileSystemTool | IMPLEMENTED | ferramenta local |
 | SQLiteMemory | IMPLEMENTED | experiências persistentes |
 | Semantic Memory / BGE-M3 | DONE | embeddings + busca semântica |
-| RAG | IMPLEMENTED | retrieval vetorial em memória |
+| RAG | IMPLEMENTED | retrieval vetorial |
 | Planner | IMPLEMENTED | plano JSON validado com Pydantic |
 | Executor | IMPLEMENTED | execução sequencial fail-fast |
 | Planner → Executor → Agent | IMPLEMENTED | integração controlada |
-| Policy por ação planejada | IMPLEMENTED | aprovação verificada antes da execução |
+| Policy por ação planejada | IMPLEMENTED | aprovação antes da execução |
 | Stage Gate | IMPLEMENTED | validação separada de promoção |
 | ReflectionEngine | IMPLEMENTED | judge de uma tentativa, fail-closed |
 | EvaluationPipeline | IMPLEMENTED | Agent attempt → Evaluation → Reflection |
-| AutonomousRunner | SCAFFOLDED | bounded retry separado para v0.7 |
+| AutonomousRunner | SCAFFOLDED | evolução atual do v0.7 |
 | Approved learning dataset | IMPLEMENTED | exportação controlada |
 | Fine-tuning / LoRA / QLoRA | TODO | somente após benchmark |
 
-## v0.6 — Evaluation / Reflection
-
-### Objetivo
-
-Adicionar uma avaliação explícita após cada tentativa do Agent, combinando a avaliação determinística existente com um LLM Judge. O resultado deve ser estruturado, validado e seguro para consumo posterior pelo fluxo autônomo.
-
-### Fluxo implementado
-
-```text
-Agent.run()
-   ↓
-Deterministic Evaluation
-   ↓
-ReflectionEngine
-   ↓
-EvaluatedRunResult
-```
-
-`EvaluationPipeline` executa exatamente uma tentativa e nunca faz retry. Se o judge solicitar correção, o pipeline apenas devolve essa decisão. O retry fica reservado ao `AutonomousRunner` do v0.7.
+> Os estados acima são auditáveis e devem ser rebaixados se a implementação real deixar de corresponder à descrição.
 
 ## v0.7 — Autonomous loops
 
@@ -111,48 +100,114 @@ EvaluatedRunResult
 
 Adicionar correção e retry autônomos com limites explícitos, sem permitir que o modelo ultrapasse a autoridade definida pela Policy.
 
-### Fluxo alvo
-
-```text
-Agent.run()
-   ↓
-Evaluation
-   ↓
-Reflection / Judge
-   ↓
-Correction
-   ↓
-Policy check
-   ↓
-Bounded retry
-   ↓
-Evaluation
-```
-
 ### Regras
 
 1. Retry sempre possui limite explícito.
-2. Correction é uma proposta, não uma autoridade.
+2. Correction é uma proposta, não autoridade.
 3. Cada nova ação passa novamente pela Policy.
 4. Ferramentas que exigem aprovação não podem ser chamadas automaticamente.
-5. Falhas parciais devem ser observáveis.
-6. Re-planning deve ser explícito e validado.
-7. O loop não pode usar recursão ilimitada.
-8. O resultado final deve preservar a avaliação e o histórico da tentativa.
+5. Falhas parciais são observáveis.
+6. Re-planning é explícito e validado.
+7. O loop não usa recursão ilimitada.
+8. O resultado preserva avaliação e histórico das tentativas.
+9. Cada tentativa é testável individualmente.
+10. Falha de segurança ou autoridade interrompe o loop.
+
+## Definition of Done
+
+Para qualquer incremento funcional:
+
+```text
+1. INSPECT
+2. PLAN
+3. IMPLEMENT
+4. TEST
+5. FIX
+6. RETEST
+7. AUDIT
+8. DOCUMENT
+9. UPDATE BATTERY
+10. STAGE GATE
+11. COMMIT
+12. APPROVE
+```
+
+Uma etapa não é `DONE` se qualquer item obrigatório falhar.
+
+## Technology Battery
+
+A Technology Battery mede o estado técnico real do Alpha7 em quatro dimensões:
+
+```text
+INTELLIGENCE
+AGENCY
+CONTROL
+PRODUCTION
+```
+
+Também acompanha:
+
+```text
+Technology Score
+Maturity Threshold
+Capability Coverage
+```
+
+Scores são derivados de evidências reais. Uma feature planejada não aumenta o score. Uma regressão pode reduzir o score.
+
+A Battery deve ser revisada depois de alterações relevantes e nunca pode ficar deliberadamente desatualizada em relação ao código.
 
 ## Stage Gate e automação
 
-O workflow `.github/workflows/stage-gate.yml` roda em push e pull request.
+Os workflows em `.github/workflows/` validam testes e estágio.
 
-- Pull request: valida o estágio, mas nunca modifica `PROJECT_CONTEXT.md`.
-- Push em `main`: valida e pode promover automaticamente a etapa.
-- O script exige exatamente um marcador `IN PROGRESS`.
-- `NEXT MILESTONE` precisa corresponder ao próximo estágio da ordem.
-- Uma etapa sem gate explícito é bloqueada.
-- A promoção só ocorre quando `PROMOTE_STAGE=true`.
-- O commit automático de promoção usa `[skip ci]` para evitar ciclo.
+- Pull request deve validar sem promover silenciosamente o roadmap.
+- Push em `main` pode promover somente quando todos os critérios configurados forem satisfeitos.
+- Deve existir exatamente um milestone `IN PROGRESS` quando essa regra estiver habilitada.
+- `NEXT MILESTONE` deve corresponder à ordem definida.
+- Etapa sem gate explícito é bloqueada.
+- Promoção automática exige os critérios configurados pelo workflow.
 
-Isso separa validação de promoção e impede avanço otimista do roadmap.
+## Test policy
+
+Toda alteração funcional deve passar, conforme aplicabilidade, por:
+
+```text
+Unit
+ ↓
+Integration
+ ↓
+End-to-end
+ ↓
+Full suite
+ ↓
+Stage Gate
+```
+
+Falhou:
+
+```text
+FAIL
+ ↓
+FIX
+ ↓
+TEST AGAIN
+ ↓
+ONLY THEN APPROVE
+```
+
+Não existe estado aceitável de "funciona, mas os testes estão quebrados".
+
+## Documentation synchronization
+
+Quando o comportamento real mudar, atualizar no mesmo ciclo:
+
+- `PROJECT_CONTEXT.md`
+- `README.md` quando aplicável
+- documentação técnica relevante
+- Technology Battery
+
+Código e documentação devem terminar cada incremento descrevendo o mesmo sistema.
 
 ## Aprendizado
 
@@ -198,13 +253,19 @@ v5.x  Custom architectures            [TODO]
 
 ## Regra de progressão
 
-1. Inspecionar código real.
-2. Implementar incremento pequeno.
-3. Criar ou atualizar testes.
-4. Executar a suíte.
-5. Validar o gate específico da etapa.
-6. Só então permitir promoção automática.
-7. Atualizar documentação no mesmo ciclo.
-8. Não introduzir SaaS, billing ou multi-tenancy no core antes de estabilizar as primitivas do runtime.
+1. Auditar o estado real.
+2. Escolher a lacuna técnica de maior impacto dentro do milestone atual.
+3. Implementar incremento pequeno e controlado.
+4. Adicionar/atualizar testes.
+5. Rodar a suíte relevante e, quando possível, a suíte completa.
+6. Corrigir todas as falhas encontradas.
+7. Rodar novamente após as correções.
+8. Verificar regressões, segurança e comportamento real.
+9. Atualizar documentação.
+10. Recalcular a Technology Battery e Capability Coverage.
+11. Validar Stage Gate.
+12. Só então considerar o incremento aprovado.
 
-O sistema deve preferir falhar fechado a promover uma etapa por engano ou permitir que um agente ultrapasse sua autoridade.
+Se a auditoria encontrar uma implementação incorreta ou incompleta, corrigir primeiro; novas funcionalidades ficam atrás da correção da base.
+
+O sistema deve preferir **falhar fechado** a promover uma etapa incorretamente ou permitir que um agente ultrapasse sua autoridade.
