@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTEXT = ROOT / "PROJECT_CONTEXT.md"
-SUPPORTED_GATES = {"v0.1", "v0.2", "v0.3", "v0.4"}
+SUPPORTED_GATES = {"v0.1", "v0.2", "v0.3", "v0.4", "v0.5"}
 ORDER = ["v0.1", "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7", "v0.8", "v0.9", "v1.0"]
 
 
@@ -65,6 +65,11 @@ def main() -> int:
 
     if stage == "v0.4":
         run(sys.executable, "-m", "pytest", "-v", "tests/test_rag.py")
+
+    if stage == "v0.5":
+        # Planning is accepted only when both the planner contract and the
+        # real multi-step executor are covered by the automated suite.
+        run(sys.executable, "-m", "pytest", "-v", "tests/test_planner.py", "tests/test_executor.py")
 
     new_text = advance_context(text, stage)
     if new_text != text:
