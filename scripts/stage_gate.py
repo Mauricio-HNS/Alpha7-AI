@@ -2,6 +2,7 @@
 """Run the acceptance gate for the documented milestone."""
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -19,10 +20,27 @@ def run(*args: str) -> None:
 
 
 def current_stage(text: str) -> str:
-    match = re.search(r"^v(\d+\.\d+): IN PROGRESS$", text, re.MULTILINE)
-    if match:
-        return f"v{match.group(1)}"
-    raise RuntimeError("No IN PROGRESS milestone found in PROJECT_CONTEXT.md")
+    matches = re.findall(r"^v(\d+\.\d+): IN PROGRESS$", text, re.MULTILINE)
+    if len(matches) != 1:
+        raise RuntimeError(
+            f"PROJECT_CONTEXT.md must contain exactly one IN PROGRESS milestone; found {len(matches)}"
+        )
+    return f"v{matches[0]}"
+
+
+def validate_stage_context(text: str, stage: str) -> None:
+    if stage not in ORDER:
+        raise RuntimeError(f"Unknown milestone {stage}")
+    match = re.search(r"^NEXT MILESTONE: (v\d+\.\d+)$", text, re.MULTILINE)
+    if not match:
+        raise RuntimeError("PROJECT_CONTEXT.md must define NEXT MILESTONE")
+    next_milestone = match.group(1)
+    expected_index = ORDER.index(stage) + 1
+    expected = ORDER[expected_index] if expected_index < len(ORDER) else stage
+    if next_milestone != expected:
+        raise RuntimeError(
+            f"NEXT MILESTONE is {next_milestone}, but the milestone after {stage} is {expected}"
+        )
 
 
 def advance_context(text: str, stage: str) -> str:
@@ -31,10 +49,6 @@ def advance_context(text: str, stage: str) -> str:
         return text
 
     next_stage = ORDER[index + 1]
-
-    # The next run must have exactly one detectable IN PROGRESS milestone.
-    # The previous implementation changed the next milestone to NEXT, which
-    # made the following invocation fail with "No IN PROGRESS milestone".
     text = re.sub(
         rf"^{re.escape(stage)}: IN PROGRESS$",
         f"{stage}: DONE",
@@ -74,6 +88,7 @@ def advance_context(text: str, stage: str) -> str:
 def main() -> int:
     text = CONTEXT.read_text(encoding="utf-8")
     stage = current_stage(text)
+    validate_stage_context(text, stage)
     print(f"Detected milestone: {stage}")
 
     if stage not in SUPPORTED_GATES:
@@ -100,9 +115,22 @@ def main() -> int:
         run(sys.executable, "-m", "pytest", "-v", "tests/test_rag.py")
 
     if stage == "v0.5":
-        # Planning is accepted only when both the planner contract and the
-        # real multi-step executor are covered by the automated suite.
-        run(sys.executable, "-m", "pytest", "-v", "tests/test_planner.py", "tests/test_executor.py")
+        # v0.5 is only accepted when planning is integrated with the real
+        # executor and policy checks, not merely tested in isolation.
+        run(
+            sys.executable,
+            "-m",
+            "pytest",
+            "-v",
+            "tests/test_planner.py",
+            "tests/test_executor.py",
+            "tests/test_agent_executor_integration.py",
+        )
+
+    promote = os.getenv("PROMOTE_STAGE", "false").lower() == "true"
+    if not promote:
+        print(f"PASS: {stage} acceptance checks passed; promotion disabled for this run.")
+        return 0
 
     new_text = advance_context(text, stage)
     if new_text != text:
