@@ -8,6 +8,7 @@ from app.llm import OllamaProvider
 from app.logging_config import setup_logging
 from app.memory import OllamaEmbedder, SQLiteMemory
 from app.planner import LLMPlanner
+from app.policy import BehavioralPolicy
 from app.tools.filesystem import FileSystemTool
 
 
@@ -21,7 +22,15 @@ def build_agent() -> Agent:
     memory = SQLiteMemory(db_path=settings.memory_db_path, embedder=embedder)
     evaluator = SimpleEvaluator()
     planner = LLMPlanner(llm, max_steps=settings.max_steps)
-    return Agent(llm=llm, tools=tools, memory=memory, evaluator=evaluator, planner=planner)
+    policy = BehavioralPolicy(max_iterations=settings.policy_max_iterations)
+    return Agent(
+        llm=llm,
+        tools=tools,
+        memory=memory,
+        evaluator=evaluator,
+        planner=planner,
+        policy=policy,
+    )
 
 
 def main() -> None:
@@ -31,7 +40,7 @@ def main() -> None:
     print("Zero-Agent v0.5")
     print(
         f"Modelo: {settings.ollama_model} | Embeddings: {settings.embedding_model} | "
-        f"Ollama: {settings.ollama_base_url}"
+        f"Ollama: {settings.ollama_base_url} | Max iterations: {settings.policy_max_iterations}"
     )
     print("Digite 'sair' para encerrar.\n")
 
