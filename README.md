@@ -49,8 +49,8 @@ v0.2  Experience Memory             [DONE]
 v0.3  Semantic Memory / BGE-M3      [DONE]
 v0.4  RAG                           [DONE]
 v0.5  Planning                      [DONE]
-v0.6  Evaluation / Reflection       [NEXT]
-v0.7  Autonomous Loops              [TODO]
+v0.6  Evaluation / Reflection       [DONE]
+v0.7  Autonomous Loops              [NEXT]
 v0.8  Multi-Agent                   [TODO]
 v0.9  Multimodal                    [TODO]
 v1.0  Stable Agent Architecture     [TODO]
@@ -79,49 +79,42 @@ Implemented:
 
 ### v0.6 — Evaluation / Reflection
 
-The first reflection layer is now implemented.
+Implemented and tested:
 
-`app/reflection.py` contains `ReflectionEngine` and `ReflectionResult`. A local LLM acts as a judge and evaluates the original task, the agent response, tool observation, and deterministic evaluation.
+- `ReflectionEngine` and `ReflectionResult` in `app/reflection.py`;
+- local LLM judge with strict JSON output;
+- deterministic evaluator remains the baseline signal;
+- invalid judge output fails closed and cannot trigger another action;
+- approval-required tools cannot be retried automatically;
+- `Agent.run()` now performs a bounded reflect/correct cycle;
+- retry count is controlled by `BehavioralPolicy.max_iterations` and `POLICY_MAX_ITERATIONS`;
+- `tests/test_reflection.py` covers valid judgement, malformed output, and approval protection;
+- `tests/test_autonomous.py` covers successful first attempts, correction retries, and iteration limits;
+- `app/autonomous.py` provides the reusable `AutonomousRunner` abstraction for the next autonomy stage.
 
-The judge must return:
-
-```json
-{
-  "success": true,
-  "score": 0.0,
-  "critique": "...",
-  "correction": "...",
-  "retry": false
-}
-```
-
-Invalid judge output fails closed: it cannot trigger another action. Approval-required tools also cannot be retried automatically.
-
-### v0.7 — Autonomous Loop foundation
-
-`app/autonomous.py` now provides `AutonomousRunner`.
-
-The execution cycle is:
+The current execution cycle is:
 
 ```text
 Task
  ↓
-Agent.run()
+Agent decision
  ↓
-ReflectionEngine
+Tool / response
+ ↓
+Deterministic evaluation
+ ↓
+Reflection / Judge
  ↓
 Success? ── yes ──→ Result
    │
    no
    ↓
-Correction
+Concrete correction
    ↓
-Agent.run() again
+Bounded retry
 ```
 
-The loop is strictly bounded by `POLICY_MAX_ITERATIONS` / `BehavioralPolicy.max_iterations`. There is no recursive self-calling and no infinite loop.
-
-The autonomous loop does NOT modify model weights. Model learning remains a separate, explicit training pipeline.
+The loop does NOT modify model weights. Model learning remains a separate, explicit training pipeline.
 
 ## Behavioral policy
 
@@ -220,15 +213,13 @@ Only approved successful experiences can later enter the training dataset. This 
 
 The next implementation increments should be completed in this order:
 
-1. Add automated tests for `ReflectionEngine`.
-2. Add automated tests for `AutonomousRunner`, including iteration limits and retry behavior.
-3. Integrate `AutonomousRunner` into the CLI after the main entry point is validated against the current branch state.
-4. Add a stronger judge/evaluation rubric while preserving the deterministic evaluator as a baseline.
-5. Add explicit approval workflow for training examples.
-6. Add benchmark datasets and model-version tracking.
-7. Add an optional local LoRA/QLoRA training script and keep training dependencies separate from the core runtime.
-8. Train a candidate model, benchmark it against the base model, and promote it only when the benchmark improves.
-9. Only after this foundation is stable, continue to multi-agent and multimodal capabilities.
+1. Strengthen the evaluation rubric while preserving the deterministic evaluator as a baseline.
+2. Add an explicit approval workflow for training examples.
+3. Add benchmark datasets and model-version tracking.
+4. Add an optional local LoRA/QLoRA training script with training dependencies separated from the core runtime.
+5. Train a candidate model, benchmark it against the base model, and promote it only when the benchmark improves.
+6. Add controlled plan execution so Planner and Executor can cooperate without bypassing policy/approval.
+7. Continue to multi-agent and multimodal capabilities only after the core architecture is stable.
 
 ## Installation
 
@@ -270,13 +261,13 @@ pytest -v
 | `MAX_TOOL_CALLS` | `10` | Reserved tool-call budget |
 | `MEMORY_DB_PATH` | `data/memory.db` | SQLite memory database |
 | `SEMANTIC_MIN_SCORE` | `0.35` | Semantic retrieval threshold |
-| `POLICY_MAX_ITERATIONS` | `5` | Maximum autonomous retries |
+| `POLICY_MAX_ITERATIONS` | `5` | Maximum autonomous attempts |
 
 ## Existing components
 
 - `ILLM` + `OllamaProvider`;
 - Gemma 3 via Ollama;
-- `Agent` with decision, tools, evaluation, memory, RAG, planning, and policy;
+- `Agent` with decision, tools, evaluation, memory, RAG, planning, policy, reflection, and bounded correction;
 - `BehavioralPolicy`;
 - `FileSystemTool`;
 - `Experience` + `SQLiteMemory`;
