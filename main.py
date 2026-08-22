@@ -4,6 +4,7 @@ from __future__ import annotations
 from app.agent import Agent
 from app.config import settings
 from app.evaluator import SimpleEvaluator
+from app.executor import ToolExecutor
 from app.llm import OllamaProvider
 from app.logging_config import setup_logging
 from app.memory import OllamaEmbedder, SQLiteMemory
@@ -22,6 +23,7 @@ def build_agent() -> Agent:
     memory = SQLiteMemory(db_path=settings.memory_db_path, embedder=embedder)
     evaluator = SimpleEvaluator()
     planner = LLMPlanner(llm, max_steps=settings.max_steps)
+    executor = ToolExecutor({tool.name: tool for tool in tools})
     policy = BehavioralPolicy(max_iterations=settings.policy_max_iterations)
     return Agent(
         llm=llm,
@@ -29,6 +31,7 @@ def build_agent() -> Agent:
         memory=memory,
         evaluator=evaluator,
         planner=planner,
+        executor=executor,
         policy=policy,
     )
 
