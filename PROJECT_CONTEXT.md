@@ -10,7 +10,7 @@ v0.2: DONE
 v0.3: DONE
 v0.4: DONE
 v0.5: DONE
-v0.6: IN PROGRESS
+v0.6: DONE
 NEXT MILESTONE: v0.7
 ```
 
@@ -145,8 +145,8 @@ v0.2  Experience Memory               [DONE]
 v0.3  Semantic Memory / BGE-M3        [DONE]
 v0.4  RAG                             [DONE]
 v0.5  Planning + controlled execution [DONE]
-v0.6  Evaluation / Reflection         [IN PROGRESS]
-v0.7  Autonomous loops                [TODO]
+v0.6  Evaluation / Reflection         [DONE]
+v0.7  Autonomous loops                [IN PROGRESS]
 v0.8  Multi-agent                     [TODO]
 v0.9  Multimodal                      [TODO]
 v1.0  Stable agent architecture       [TODO]
