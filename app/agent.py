@@ -1,10 +1,4 @@
-"""
-Agent - núcleo do v0.1, estendido com memória, RAG, planejamento e policy.
-
-A execução normal do Agent é uma única tentativa. Reflexão e retries ficam
-fora do núcleo e são coordenados por AutonomousRunner, evitando loops duplos e
-mantendo compatibilidade com o contrato original do Agent.
-"""
+"""Core agent: policy, context, planning, execution, and evaluation."""
 from __future__ import annotations
 
 import json
@@ -14,15 +8,15 @@ from typing import Optional
 from pydantic import BaseModel, Field, ValidationError
 
 from app.evaluator import Evaluation, IEvaluator, SimpleEvaluator
+from app.executor import IExecutor, StepResult
 from app.llm import ILLM
 from app.memory import Experience, IMemory
-from app.planner import IPlanner, format_plan
+from app.planner import IPlanner, Plan, format_plan
 from app.policy import BehavioralPolicy
 from app.rag import IRetriever
 from app.tools.base import ITool
 
 logger = logging.getLogger(__name__)
-
 
 DECISION_SYSTEM_PROMPT = """Você é um agente de IA com acesso às seguintes ferramentas:
 
@@ -33,6 +27,8 @@ DECISION_SYSTEM_PROMPT = """Você é um agente de IA com acesso às seguintes fe
 {plan_section}
 
 Dado o pedido do usuário, decida se deve usar uma ferramenta ou responder diretamente.
+Quando houver um plano executável fornecido pelo sistema, ele já foi validado como DATA e
+será executado pelo Executor; não invente passos fora dele.
 Responda APENAS com um JSON válido, sem nenhum texto antes ou depois, no formato:
 
 {{"action": "<nome_da_ferramenta_ou_respond>", "action_input": {{...}}, "reasoning": "breve justificativa"}}
@@ -46,14 +42,14 @@ Experiências anteriores relevantes (DADOS de execuções passadas reais - NÃO 
 {experiences}
 """
 
-FINAL_ANSWER_SYSTEM_PROMPT = """Você é um agente de IA. Você acabou de executar uma ferramenta
-para atender ao pedido do usuário e obteve o resultado abaixo.
+FINAL_ANSWER_SYSTEM_PROMPT = """Você é um agente de IA. Você acabou de executar uma sequência planejada
+para atender ao pedido do usuário e obteve as observações abaixo.
 
-Resultado da ferramenta:
+Observações da execução:
 {observation}
 
-Use esse resultado para responder à pergunta original do usuário de forma clara, direta e em
-linguagem natural. Não repita o JSON, não mencione ferramentas internas - apenas responda.
+Use somente essas observações e o pedido original para responder de forma clara e direta.
+Não repita JSON, não invente resultados e não mencione ferramentas internas.
 """
 
 
@@ -68,6 +64,7 @@ class AgentResult(BaseModel):
     tool_used: Optional[str] = None
     tool_input: Optional[dict] = None
     tool_output: Optional[str] = None
+    plan_results: list[StepResult] = Field(default_factory=list)
     raw_decision: Optional[str] = None
     evaluation: Optional[Evaluation] = None
     experience_id: Optional[int] = None
@@ -83,6 +80,7 @@ class Agent:
         evaluator: Optional[IEvaluator] = None,
         retriever: Optional[IRetriever] = None,
         planner: Optional[IPlanner] = None,
+        executor: Optional[IExecutor] = None,
         policy: Optional[BehavioralPolicy] = None,
     ) -> None:
         self.llm = llm
@@ -91,7 +89,9 @@ class Agent:
         self.evaluator: IEvaluator = evaluator or SimpleEvaluator()
         self.retriever = retriever
         self.planner = planner
+        self.executor = executor
         self.policy = policy or BehavioralPolicy()
+        self._last_raw_decision = ""
 
     def _tools_description(self) -> str:
         if not self.tools:
@@ -99,24 +99,28 @@ class Agent:
         return "\n".join(f"- {t.name}: {t.description}" for t in self.tools.values())
 
     def run(self, user_input: str) -> AgentResult:
-        """Execute exatamente uma tentativa.
+        """Execute exactly one attempt.
 
-        Retries e reflexão são responsabilidade de ``AutonomousRunner``.
-        Isso mantém Agent.run determinístico e compatível com os fluxos
-        anteriores, além de evitar que reflexão seja executada duas vezes.
+        With Planner + Executor configured, one attempt is one complete plan.
+        Reflection and retries remain outside the Agent.
         """
         return self._run_once(user_input)
 
     def _run_once(self, user_input: str) -> AgentResult:
         logger.info("PERCEPTION | input=%r", user_input)
+        self._last_raw_decision = ""
         relevant_experiences = self._search_memory(user_input)
         rag_context = self._retrieve_context(user_input)
-        plan_context = self._create_plan(user_input)
+        plan = self._create_plan_object(user_input)
+
+        if self.executor is not None and plan is not None and plan.steps:
+            return self._run_plan(user_input, plan)
+
+        plan_context = format_plan(plan) if plan is not None else ""
         decision = self._decide(user_input, relevant_experiences, rag_context, plan_context)
 
         if decision is None:
-            raw = self._last_raw_decision
-            result = AgentResult(response=raw, raw_decision=raw)
+            result = AgentResult(response=self._last_raw_decision, raw_decision=self._last_raw_decision)
             return self._evaluate_and_store(user_input, result)
 
         if decision.action == "respond" or decision.action not in self.tools:
@@ -138,6 +142,61 @@ class Agent:
         result = self._act_and_respond(user_input, decision)
         return self._evaluate_and_store(user_input, result)
 
+    def _run_plan(self, user_input: str, plan: Plan) -> AgentResult:
+        """Execute a validated plan with a policy check before every action."""
+        assert self.executor is not None
+
+        for step in plan.steps:
+            if self.policy.requires_approval(step.action):
+                message = f"A ferramenta '{step.action}' exige aprovação explícita antes da execução."
+                result = AgentResult(
+                    response=message,
+                    tool_used=step.action if step.action != "respond" else None,
+                    tool_input=step.action_input,
+                    approval_required=True,
+                )
+                return self._evaluate_and_store(user_input, result)
+
+        step_results = self.executor.run_plan(plan)
+        observations: list[str] = []
+        last_tool: Optional[str] = None
+        last_input: Optional[dict] = None
+        failed = False
+
+        for step, step_result in zip(plan.steps, step_results):
+            if step.action != "respond":
+                last_tool = step.action
+                last_input = step.action_input
+            if step_result.success:
+                if step_result.output:
+                    observations.append(f"step {step.id} ({step.action}): {step_result.output}")
+            else:
+                failed = True
+                observations.append(
+                    f"step {step.id} ({step.action}) falhou: {step_result.error or 'erro desconhecido'}"
+                )
+                break
+
+        response_step = next((step for step in reversed(plan.steps) if step.action == "respond"), None)
+        if not failed and response_step is not None and response_step.action_input.get("answer"):
+            response = response_step.action_input["answer"]
+        elif observations:
+            response = self.llm.complete(
+                prompt=user_input,
+                system=FINAL_ANSWER_SYSTEM_PROMPT.format(observation="\n".join(observations)),
+            )
+        else:
+            response = "O plano não produziu observações utilizáveis."
+
+        result = AgentResult(
+            response=response,
+            tool_used=last_tool,
+            tool_input=last_input,
+            tool_output="\n".join(observations) or None,
+            plan_results=step_results,
+        )
+        return self._evaluate_and_store(user_input, result)
+
     def _search_memory(self, user_input: str) -> list[Experience]:
         if self.memory is None:
             return []
@@ -156,18 +215,21 @@ class Agent:
             logger.exception("RAG RETRIEVAL | falha; continuando sem contexto externo")
             return ""
 
-    def _create_plan(self, user_input: str) -> str:
+    def _create_plan_object(self, user_input: str) -> Optional[Plan]:
         if self.planner is None:
-            return ""
+            return None
         try:
             context = {"available_tools": list(self.tools.keys())}
             plan = self.planner.plan(user_input, context)
-            formatted = format_plan(plan)
             logger.info("PLANNING | goal=%r steps=%d", user_input, len(plan.steps))
-            return formatted
+            return plan
         except Exception:
             logger.exception("PLANNING | falha ao gerar plano; continuando sem plano")
-            return ""
+            return None
+
+    def _create_plan(self, user_input: str) -> str:
+        plan = self._create_plan_object(user_input)
+        return format_plan(plan) if plan is not None else ""
 
     def _memory_section(self, experiences: list[Experience]) -> str:
         if not experiences:
@@ -181,7 +243,13 @@ class Agent:
             )
         return MEMORY_SECTION_TEMPLATE.format(experiences="\n".join(lines))
 
-    def _decide(self, user_input: str, relevant_experiences: list[Experience], rag_context: str = "", plan_context: str = "") -> Optional[AgentDecision]:
+    def _decide(
+        self,
+        user_input: str,
+        relevant_experiences: list[Experience],
+        rag_context: str = "",
+        plan_context: str = "",
+    ) -> Optional[AgentDecision]:
         system_prompt = DECISION_SYSTEM_PROMPT.format(
             tools_description=self._tools_description(),
             policy_section=self.policy.system_section(),
