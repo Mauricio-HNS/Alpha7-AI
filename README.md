@@ -2,525 +2,233 @@
 
 ## From AI Models to Autonomous Software Agents
 
-Zero-Agent is an experimental AI agent platform built from scratch in Python, without agent frameworks. Its goal is to transform language models into systems that can progressively understand goals, use tools, retrieve knowledge, plan tasks, execute actions, evaluate results, and move toward autonomous software development.
+Zero-Agent is an experimental AI agent platform built from scratch in Python, without agent frameworks. Its goal is to transform language models into systems that can progressively understand goals, use tools, retrieve knowledge, plan tasks, execute actions, evaluate results, reflect on failures, correct themselves within a bounded loop, and eventually learn from explicitly approved experiences.
 
-### The problem
+### Core principle
 
-Modern AI models are already capable of generating code, analyzing information, and answering complex questions. A model alone, however, is not a complete autonomous developer.
-
-An autonomous software agent needs architecture around the model to:
-
-- remember previous experiences;
-- maintain persistent semantic knowledge;
-- retrieve relevant information;
-- decompose complex goals into executable steps;
-- use tools and interact with real systems;
-- verify whether its work actually succeeded;
-- detect and correct failures;
-- continue working toward a goal without requiring a new human instruction at every step.
-
-Zero-Agent is an exploration of that missing layer.
-
----
-
-## The idea
-
-The model provides intelligence. Zero-Agent provides the agent architecture around it.
+The model provides cognitive capability. Zero-Agent provides the controlled system around it.
 
 ```text
-                    AI MODEL
-                       │
-                       ▼
-              ┌─────────────────┐
-              │   ZERO-AGENT    │
-              ├─────────────────┤
-              │ Memory          │
-              │ Semantic Memory │
-              │ RAG             │
-              │ Planning        │
-              │ Tools           │
-              │ Execution       │
-              │ Evaluation      │
-              │ Reflection      │
-              │ Autonomy        │
-              └────────┬────────┘
-                       │
-                       ▼
-                REAL-WORLD ACTION
-```
-
-The fundamental transition is:
-
-```text
-"Answer my question."
-
-              ↓
-
-"Work toward this goal."
-```
-
----
-
-## From chatbot to agent
-
-A traditional chatbot can be represented as:
-
-```text
-User
-  │
-  ▼
-AI Model
-  │
-  ▼
-Response
-```
-
-The target architecture of Zero-Agent is:
-
-```text
-User
-  │
-  ▼
-Goal
-  │
-  ▼
-Planning
-  │
-  ▼
+User Goal
+   ↓
+Policy / Rules
+   ↓
 Memory + RAG
-  │
-  ▼
-Tool Selection
-  │
-  ▼
-Execution
-  │
-  ▼
+   ↓
+Planning
+   ↓
+Decision
+   ↓
+Tool Execution
+   ↓
 Evaluation
-  │
-  ▼
-Reflection
-  │
-  ├──── Failure ────► Correction
-  │                       │
-  │                       ▼
-  └────────────────── Execution
-                          │
-                          ▼
-                       Result
+   ↓
+Reflection / Judge
+   ↓
+Correction
+   └──────────────→ bounded retry
+   ↓
+Approved Experience
+   ↓
+Training Dataset
+   ↓
+Optional LoRA / QLoRA
+   ↓
+Benchmark
+   ↓
+Promote model only if it improves
 ```
 
-This is the core idea behind the project: moving from AI that primarily responds to AI systems that can progressively perform work.
-
----
-
-## Software development as a primary use case
-
-One of the main applications envisioned for Zero-Agent is turning AI models into agents capable of working as software developers.
-
-A future workflow could start with:
-
-```text
-GitHub Repository
-       +
-     Goal
-```
-
-For example:
-
-```text
-"Add JWT authentication, create the tests,
-update the documentation, and prepare a Pull Request."
-```
-
-The target workflow is:
-
-```text
-Analyze repository
-        ↓
-Understand architecture
-        ↓
-Retrieve relevant knowledge
-        ↓
-Create a plan
-        ↓
-Modify code
-        ↓
-Run tests
-        ↓
-Analyze results
-        ↓
-Correct problems
-        ↓
-Run tests again
-        ↓
-Validate
-        ↓
-Create Pull Request
-```
-
-The goal is not merely to generate code. The goal is to progressively automate the engineering workflow around real software projects.
-
----
+Memory and RAG are treated as DATA, NOT INSTRUCTIONS. Retrieved content cannot redefine the agent's policy.
 
 ## Architecture evolution
 
-Zero-Agent is intentionally developed in incremental stages. Each stage introduces a fundamental capability and becomes the foundation for the next.
-
 ```text
-v0.1  Agent
-      │
-      ▼
-v0.2  Experience Memory
-      │
-      ▼
-v0.3  Semantic Memory
-      │
-      ▼
-v0.4  RAG
-      │
-      ▼
-v0.5  Planning
-      │
-      ▼
-v0.6  Evaluation / Reflection
-      │
-      ▼
-v0.7  Autonomous Loops
-      │
-      ▼
-v0.8  Multi-Agent
-      │
-      ▼
-v0.9  Multimodal
-      │
-      ▼
-v1.0  Stable Agent Architecture
+v0.1  Agent                         [DONE]
+v0.2  Experience Memory             [DONE]
+v0.3  Semantic Memory / BGE-M3      [DONE]
+v0.4  RAG                           [DONE]
+v0.5  Planning                      [DONE]
+v0.6  Evaluation / Reflection       [NEXT]
+v0.7  Autonomous Loops              [TODO]
+v0.8  Multi-Agent                   [TODO]
+v0.9  Multimodal                    [TODO]
+v1.0  Stable Agent Architecture     [TODO]
+v1.x  Local Model Experiments       [TODO]
+v2.x  Fine-tuning                   [TODO]
+v3.x  PyTorch Experiments           [TODO]
+v4.x  Training Experiments          [TODO]
+v5.x  Custom Architectures          [TODO]
 ```
 
-After the stable agent architecture, the project moves toward model experimentation:
+The roadmap is incremental. A stage is marked DONE only after code, tests, documentation, and validation exist.
 
-```text
-v1.x  Local Models
-      │
-      ▼
-v2.x  Fine-tuning
-      │
-      ▼
-v3.x  PyTorch Experiments
-      │
-      ▼
-v4.x  Training Experiments
-      │
-      ▼
-v5.x  Custom Architectures
-```
+## Current implementation
 
-The first phase builds the agent. The later phases explore the models and architectures that can power it.
+### v0.5 — Planning
 
----
-
-## Model-agnostic direction
-
-Zero-Agent is designed around abstractions so that the agent architecture does not have to depend permanently on a single model provider.
-
-```text
-              ZERO-AGENT
-                   │
-                   ▼
-              LLM / API
-                   │
-       ┌───────────┼───────────┐
-       ▼           ▼           ▼
-     Local       Cloud       Future
-     Models      Models      Models
-```
-
-The current implementation uses Ollama, Gemma 3, and BGE-M3 to enable local development and controlled experimentation.
-
-The architecture is intended to allow different models to occupy the same role as the project evolves.
-
----
-
-## Built to understand the fundamentals
-
-Zero-Agent deliberately avoids agent frameworks during its core development. The project implements and exposes fundamental mechanisms instead of hiding them behind a high-level framework.
-
-The areas being explored include:
-
-```text
-LLM
-Memory
-Embeddings
-Retrieval
-RAG
-Planning
-Execution
-Evaluation
-Reflection
-Autonomy
-Multi-Agent
-```
-
-This makes Zero-Agent both an agent platform experiment and a research-oriented environment for understanding how agentic systems work internally.
-
----
-
-## Long-term vision
-
-The project is not intended to become simply another chatbot.
-
-It is also not primarily an attempt to compete with large AI laboratories by training the largest possible language model.
-
-The long-term focus is the layer between an AI model and real-world work:
-
-```text
-                AI MODEL
-                   │
-                   ▼
-             ZERO-AGENT
-                   │
-       ┌───────────┼───────────┐
-       ▼           ▼           ▼
-    Software     Research    Automation
-   Development    Tasks       Tasks
-       │           │           │
-       └───────────┼───────────┘
-                   ▼
-              REAL ACTION
-```
-
-The vision is to make different AI models usable as specialized agents capable of working toward real goals.
-
----
-
-## A simple mental model
-
-If an AI model is the brain:
-
-```text
-AI MODEL
-   =
-cognitive capability
-```
-
-then Zero-Agent provides the surrounding agent system:
-
-```text
-ZERO-AGENT
-   =
-memory
-+ planning
-+ tools
-+ execution
-+ evaluation
-+ reflection
-+ autonomy
-```
-
-Together:
-
-```text
-AI Model
-    +
-Agent Architecture
-    =
-Autonomous AI Agent
-```
-
----
-
-## Built to evolve
-
-The project is intentionally incremental.
-
-A stage is only considered complete when it has:
-
-```text
-Real code
-   +
-Passing tests
-   +
-Documentation
-   +
-Validation
-```
-
-This allows every stage to be verified independently and used as a foundation for the next one.
-
-Zero-Agent is not being built as a single AI demonstration. It is being developed as an experimental architecture that can evolve from a basic agent toward autonomous agents and, later, toward experimentation with models, training, and custom architectures.
-
----
-
-## Current status
-
-```text
-v0.1  Basic Agent                     [DONE]
-v0.2  Experience Memory               [DONE]
-v0.3  Semantic Memory / BGE-M3        [DONE]
-v0.4  RAG                             [DONE]
-v0.5  Planning                        [IN PROGRESS]
-v0.6  Evaluation / Reflection         [TODO]
-v0.7  Autonomous Loops                [TODO]
-v0.8  Multi-Agent                     [TODO]
-v0.9  Multimodal                      [TODO]
-v1.0  Stable Agent Architecture       [TODO]
-v1.x  Local Model Experiments         [TODO]
-v2.x  Fine-tuning                     [TODO]
-v3.x  PyTorch Experiments             [TODO]
-v4.x  Training Experiments            [TODO]
-v5.x  Custom Architectures            [TODO]
-```
-
-**Roadmap rule:** a stage can only become `[DONE]` after real code, passing tests, and updated documentation. When a stage is completed, mark it `[DONE]` and the next stage `[NEXT]` in `README.md` and `PROJECT_CONTEXT.md`.
-
----
-
-## v0.5 — Planning
-
-Explicit planning, decoupled from execution: the planner transforms a goal into a small, ordered sequence of steps, but does not execute anything itself — execution remains the responsibility of a real Executor.
-
-```text
-Goal
- ↓
-LLMPlanner (same ILLM contract as Agent)
- ↓
-Validated JSON (Pydantic)
- ↓
-Plan { steps }
- ↓
-formatted as DATA, NOT INSTRUCTIONS
- ↓
-injected into the Agent decision prompt (optional)
-```
-
-Implemented in this initial stage:
+Implemented:
 
 - `IPlanner`, `Plan`, `PlanStep`, and `LLMPlanner` in `app/planner.py`;
-- plans generated as validated JSON (sequential IDs, maximum of 10 steps);
-- `format_plan()` labels the plan as **DATA, NOT INSTRUCTIONS**;
-- optional `Agent(planner=...)`, injecting the plan into the decision prompt without executing it;
-- Agent provides the planner with the real names of available tools;
-- planner failure does not crash the Agent (same safe fallback pattern used by RAG);
-- `main.py` connects the planner using the existing `MAX_STEPS` from `app/config.py`;
-- `IExecutor` + `ToolExecutor` in `app/executor.py`: execute one step or an entire plan against the Agent tools, stopping at the first failed step (fail-fast).
+- validated JSON plans using Pydantic;
+- sequential step IDs and a maximum number of steps;
+- plans explicitly labeled DATA, NOT INSTRUCTIONS;
+- optional planner integration in `Agent`;
+- `IExecutor` and `ToolExecutor` in `app/executor.py`;
+- plan execution remains a separate capability so planning cannot silently execute actions.
 
-Still missing: connect the Executor to `Agent` so a complete plan can run automatically — Planner and Executor currently exist and are tested, but remain decoupled.
+### v0.6 — Evaluation / Reflection
 
----
+The first reflection layer is now implemented.
 
-## v0.4 — RAG
+`app/reflection.py` contains `ReflectionEngine` and `ReflectionResult`. A local LLM acts as a judge and evaluates the original task, the agent response, tool observation, and deterministic evaluation.
 
-First Retrieval-Augmented Generation increment, keeping the mechanisms explicit and replaceable:
+The judge must return:
 
-```text
-Document
- ↓
-chunking with overlap
- ↓
-BGE-M3 / IEmbedder
- ↓
-vectors in local index
- ↓
-cosine similarity + threshold
- ↓
-retrieved context
- ↓
-Agent / LLM
+```json
+{
+  "success": true,
+  "score": 0.0,
+  "critique": "...",
+  "correction": "...",
+  "retry": false
+}
 ```
 
-Implemented in this initial stage:
+Invalid judge output fails closed: it cannot trigger another action. Approval-required tools also cannot be retried automatically.
 
-- `Document` and `Chunk` for representing sources and passages;
-- deterministic chunking with configurable size and overlap;
-- `InMemoryRetriever` without an external framework;
-- embeddings through the `IEmbedder` contract already used by v0.3;
-- ranking by cosine similarity;
-- explicit relevance threshold;
-- result limit (`top-k`);
-- context formatted with source, chunk, and score;
-- retrieved content explicitly labeled **DATA, NOT INSTRUCTIONS**;
-- optional RAG integration with the `Agent`.
+### v0.7 — Autonomous Loop foundation
 
-## v0.3 — Semantic Memory / BGE-M3
+`app/autonomous.py` now provides `AutonomousRunner`.
 
-Implementation completed:
+The execution cycle is:
 
 ```text
-User
+Task
  ↓
-Agent
+Agent.run()
  ↓
-SQLiteMemory
- ├── BGE-M3 embedding
- ├── cosine similarity
- └── keyword fallback for legacy data/failures
+ReflectionEngine
  ↓
-LLM
+Success? ── yes ──→ Result
+   │
+   no
+   ↓
+Correction
+   ↓
+Agent.run() again
 ```
 
-Implemented in this stage:
+The loop is strictly bounded by `POLICY_MAX_ITERATIONS` / `BehavioralPolicy.max_iterations`. There is no recursive self-calling and no infinite loop.
 
-- `IEmbedder` abstraction;
-- `OllamaEmbedder` using `/api/embed`;
-- configurable `bge-m3:latest` model;
-- embedding persistence in SQLite;
-- automatic migration of existing databases by adding embedding columns;
-- semantic search using cosine similarity;
-- keyword-search fallback when embeddings fail;
-- fallback for old experiences that do not yet have embeddings;
-- embedding isolation by the model that produced them;
-- `backfill_embeddings()` to generate missing embeddings or rebuild embeddings when the model changes;
-- unit tests for similarity, persistence, legacy data, failures, and reindexing;
-- real BGE-M3 validation through the GitHub Actions Stage Gate.
+The autonomous loop does NOT modify model weights. Model learning remains a separate, explicit training pipeline.
 
-## What does not exist yet
+## Behavioral policy
 
-- Complete RAG with document persistence
-- Automatic execution of a complete plan inside `Agent.run()`
-- Reflection
-- Autonomous loops
-- Multi-agent
-- Multimodal
-- Fine-tuning / training / RL
-- Web interface
-- ShellTool
+`app/policy.py` defines user-owned behavioral constraints.
 
-## Existing components
+The policy can define:
 
-- Python 3.12+
-- `ILLM` + `OllamaProvider`
-- Gemma 3 via Ollama
-- `Agent` with decision, tools, evaluation, memory, and optional RAG context
-- `FileSystemTool`
-- `Experience` with Pydantic
-- `SQLiteMemory`
-- `SimpleEvaluator`
-- `IEmbedder` + `OllamaEmbedder`
-- `Document` + `InMemoryRetriever`
-- `IPlanner` + `LLMPlanner` (optional planning, not yet automatically executed)
-- `IExecutor` + `ToolExecutor` (executes plan steps, still decoupled from Agent)
-- Structured logging
-- Automated tests
+- mission;
+- mandatory rules;
+- prohibited rules;
+- tools that require explicit approval;
+- maximum autonomous iterations;
+- whether learning is restricted to successful experiences.
 
-## Requirements
+The important separation is:
 
-- Python 3.12+
-- Ollama running locally
-- `gemma3:latest` for the LLM
-- `bge-m3:latest` for embeddings
+```text
+SYSTEM / USER POLICY = RULES
+MEMORY / RAG          = DATA
+MODEL OUTPUT          = PROPOSAL
+TOOLS                 = CAPABILITIES
+JUDGE                 = EVALUATION
+TRAINING              = EXPLICIT LEARNING
+```
 
-## Configuration
+A retrieved document or previous experience must never become a new behavioral rule merely because the model saw it.
 
-| Variable | Default | Description |
-|---|---|---|
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama URL |
-| `OLLAMA_MODEL` | `gemma3:latest` | LLM model |
-| `EMBEDDING_MODEL` | `bge-m3:latest` | Embedding model |
-| `LLM_TIMEOUT` | `60` | Timeout in seconds |
-| `MAX_STEPS` | `5` | Future autonomous step limit |
-| `MAX_TOOL_CALLS` | `10` | Future tool-call limit |
-| `MEMORY_DB_PATH` | `data/memory.db` | Memory database |
+## Learning architecture
+
+`app/learning.py` exports successful, sufficiently important experiences to a training-ready JSONL file.
+
+Example:
+
+```text
+data/training/approved.jsonl
+```
+
+Only explicitly suitable experiences are exported. The current exporter requires successful experiences with importance >= 0.6 and a non-empty result.
+
+This is intentional. The agent must not silently change its own weights after every interaction.
+
+The planned training pipeline is:
+
+```text
+Agent experience
+      ↓
+Evaluation
+      ↓
+Human / policy approval
+      ↓
+approved.jsonl
+      ↓
+LoRA / QLoRA candidate
+      ↓
+Benchmark
+      ↓
+Accept or reject candidate
+```
+
+## Local and free-first architecture
+
+The current stack is designed to run locally:
+
+- Ollama for local LLM inference;
+- Gemma 3 as the current LLM;
+- BGE-M3 for embeddings;
+- SQLite for persistent memory;
+- Python/Pydantic for the agent architecture;
+- no agent framework required.
+
+The long-term training experiments will use optional local dependencies so the lightweight runtime is not forced to install GPU/training packages.
+
+Hardware and electricity are the practical costs of local execution; the software architecture does not require a paid model API.
+
+## What happens when the agent fails
+
+A failure is not automatically treated as a new rule.
+
+```text
+Execution
+   ↓
+Deterministic evaluation
+   ↓
+Reflection / Judge
+   ↓
+Concrete correction
+   ↓
+Bounded retry
+   ↓
+Final result
+```
+
+Only approved successful experiences can later enter the training dataset. This prevents one bad interaction from teaching the model an incorrect behavior.
+
+## Next steps
+
+The next implementation increments should be completed in this order:
+
+1. Add automated tests for `ReflectionEngine`.
+2. Add automated tests for `AutonomousRunner`, including iteration limits and retry behavior.
+3. Integrate `AutonomousRunner` into the CLI after the main entry point is validated against the current branch state.
+4. Add a stronger judge/evaluation rubric while preserving the deterministic evaluator as a baseline.
+5. Add explicit approval workflow for training examples.
+6. Add benchmark datasets and model-version tracking.
+7. Add an optional local LoRA/QLoRA training script and keep training dependencies separate from the core runtime.
+8. Train a candidate model, benchmark it against the base model, and promote it only when the benchmark improves.
+9. Only after this foundation is stable, continue to multi-agent and multimodal capabilities.
 
 ## Installation
 
@@ -530,19 +238,76 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Running
+Start Ollama locally:
 
 ```bash
 ollama serve
 ollama pull gemma3:latest
 ollama pull bge-m3:latest
+```
+
+Run:
+
+```bash
 python main.py
 ```
 
-## Tests
+Tests:
 
 ```bash
 pytest -v
 ```
 
-Integration tests with Ollama should use mocks/fakes whenever possible to keep the suite deterministic. Real integration gates run in GitHub Actions.
+## Configuration
+
+| Variable | Default | Description |
+|---|---|---|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama URL |
+| `OLLAMA_MODEL` | `gemma3:latest` | Local LLM |
+| `EMBEDDING_MODEL` | `bge-m3:latest` | Embedding model |
+| `LLM_TIMEOUT` | `60` | LLM timeout in seconds |
+| `MAX_STEPS` | `5` | Maximum planner steps |
+| `MAX_TOOL_CALLS` | `10` | Reserved tool-call budget |
+| `MEMORY_DB_PATH` | `data/memory.db` | SQLite memory database |
+| `SEMANTIC_MIN_SCORE` | `0.35` | Semantic retrieval threshold |
+| `POLICY_MAX_ITERATIONS` | `5` | Maximum autonomous retries |
+
+## Existing components
+
+- `ILLM` + `OllamaProvider`;
+- Gemma 3 via Ollama;
+- `Agent` with decision, tools, evaluation, memory, RAG, planning, and policy;
+- `BehavioralPolicy`;
+- `FileSystemTool`;
+- `Experience` + `SQLiteMemory`;
+- `SimpleEvaluator`;
+- `IEmbedder` + `OllamaEmbedder`;
+- `Document` + `InMemoryRetriever`;
+- `IPlanner` + `LLMPlanner`;
+- `IExecutor` + `ToolExecutor`;
+- `ReflectionEngine`;
+- `AutonomousRunner`;
+- approved-experience training exporter;
+- structured logging;
+- automated tests.
+
+## Project philosophy
+
+Zero-Agent is being built to understand the mechanisms that turn a model into an agent rather than hiding those mechanisms behind a framework.
+
+The final objective is not simply a chatbot that generates text. It is a controlled local system capable of:
+
+```text
+Understand
+Plan
+Act
+Observe
+Evaluate
+Reflect
+Correct
+Remember
+Learn from approved data
+Improve through measured training
+```
+
+The model remains replaceable. The agent architecture remains the controlled layer around it.
