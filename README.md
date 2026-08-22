@@ -48,9 +48,9 @@ v0.1  Agent                         [DONE]
 v0.2  Experience Memory             [DONE]
 v0.3  Semantic Memory / BGE-M3      [DONE]
 v0.4  RAG                           [DONE]
-v0.5  Planning                      [DONE]
-v0.6  Evaluation / Reflection       [DONE]
-v0.7  Autonomous Loops              [NEXT]
+v0.5  Planning                      [IN PROGRESS]
+v0.6  Evaluation / Reflection       [SCAFFOLDED]
+v0.7  Autonomous Loops              [SCAFFOLDED]
 v0.8  Multi-Agent                   [TODO]
 v0.9  Multimodal                    [TODO]
 v1.0  Stable Agent Architecture     [TODO]
@@ -61,7 +61,7 @@ v4.x  Training Experiments          [TODO]
 v5.x  Custom Architectures          [TODO]
 ```
 
-The roadmap is incremental. A stage is marked DONE only after code, tests, documentation, and validation exist.
+A stage is marked DONE only after code, tests, documentation, and the corresponding acceptance gate pass. Existing code for a future stage does not promote that stage automatically.
 
 ## Current implementation
 
@@ -75,46 +75,38 @@ Implemented:
 - plans explicitly labeled DATA, NOT INSTRUCTIONS;
 - optional planner integration in `Agent`;
 - `IExecutor` and `ToolExecutor` in `app/executor.py`;
-- plan execution remains a separate capability so planning cannot silently execute actions.
+- plan execution remains a separate capability and is not silently triggered by `Agent.run()` yet.
+
+The v0.5 milestone remains IN PROGRESS because controlled integration between Planner, Executor, policy, and Agent is not yet part of the acceptance gate.
 
 ### v0.6 — Evaluation / Reflection
 
-Implemented and tested:
+The reflection layer is implemented as a separate, testable component but is not automatically invoked by the base `Agent.run()` yet.
+
+Implemented:
 
 - `ReflectionEngine` and `ReflectionResult` in `app/reflection.py`;
 - local LLM judge with strict JSON output;
 - deterministic evaluator remains the baseline signal;
 - invalid judge output fails closed and cannot trigger another action;
 - approval-required tools cannot be retried automatically;
-- `Agent.run()` now performs a bounded reflect/correct cycle;
-- retry count is controlled by `BehavioralPolicy.max_iterations` and `POLICY_MAX_ITERATIONS`;
-- `tests/test_reflection.py` covers valid judgement, malformed output, and approval protection;
-- `tests/test_autonomous.py` covers successful first attempts, correction retries, and iteration limits;
-- `app/autonomous.py` provides the reusable `AutonomousRunner` abstraction for the next autonomy stage.
+- `tests/test_reflection.py` covers valid judgement, malformed output, and approval protection.
 
-The current execution cycle is:
+`Agent.run()` intentionally performs one attempt. Reflection and retries are coordinated externally by `AutonomousRunner`, preventing duplicate reflection loops and preserving the original Agent contract.
 
-```text
-Task
- ↓
-Agent decision
- ↓
-Tool / response
- ↓
-Deterministic evaluation
- ↓
-Reflection / Judge
- ↓
-Success? ── yes ──→ Result
-   │
-   no
-   ↓
-Concrete correction
-   ↓
-Bounded retry
-```
+### v0.7 — Autonomous Loops
 
-The loop does NOT modify model weights. Model learning remains a separate, explicit training pipeline.
+`app/autonomous.py` provides `AutonomousRunner`, a bounded execution/reflection/correction loop.
+
+Implemented and tested:
+
+- bounded iteration budget;
+- reflection after each attempt;
+- concrete correction passed to the next attempt;
+- termination on success, approval requirement, missing retry, empty correction, or iteration limit;
+- `tests/test_autonomous.py` covers first-attempt success, correction retry, and iteration limits.
+
+This component is scaffolded for the next milestone and is not the default CLI execution path yet.
 
 ## Behavioral policy
 
@@ -193,35 +185,39 @@ Hardware and electricity are the practical costs of local execution; the softwar
 
 GitHub Actions validates the project independently from the local development environment.
 
-The workflow in `.github/workflows/stage-gate.yml` runs `scripts/stage_gate.py`. The stage gate must have an explicit acceptance definition for the current milestone; it must never fail merely because a newly reached milestone has not yet been added to the gate registry.
+The workflow in `.github/workflows/stage-gate.yml` runs `scripts/stage_gate.py`. The stage gate requires an explicit acceptance definition for the current milestone and blocks milestones that do not have a registered gate.
 
-For v0.5, the automated gate now requires:
+For v0.5, the automated gate currently requires:
 
 1. the complete `pytest -v` suite to pass;
 2. the dedicated planner tests to pass;
 3. the dedicated executor tests to pass.
 
-When the v0.5 gate passes on `main`, the workflow may promote `PROJECT_CONTEXT.md` to the next milestone. If a future milestone does not yet have real acceptance checks, the gate intentionally blocks promotion until those checks are implemented.
+The gate promotion logic must preserve exactly one `IN PROGRESS` milestone. The previous implementation incorrectly changed the next milestone to `NEXT`, which caused the following gate invocation to fail because it could no longer detect an `IN PROGRESS` stage. This has been corrected.
 
-This change fixes the previous CI failure where v0.5 was already the documented milestone but `SUPPORTED_GATES` still stopped at v0.4.
+A future milestone must not be considered DONE merely because its implementation files exist. Its real acceptance checks must be implemented before that milestone is added to `SUPPORTED_GATES`.
 
 ## What happens when the agent fails
 
 A failure is not automatically treated as a new rule.
 
+The current reusable autonomous path is:
+
 ```text
-Execution
+Agent.run() — one attempt
    ↓
 Deterministic evaluation
    ↓
-Reflection / Judge
+ReflectionEngine
    ↓
 Concrete correction
    ↓
-Bounded retry
+AutonomousRunner — bounded retry
    ↓
 Final result
 ```
+
+`Agent.run()` itself remains a single-attempt operation. This separation prevents the base Agent and `AutonomousRunner` from running nested reflection loops.
 
 Only approved successful experiences can later enter the training dataset. This prevents one bad interaction from teaching the model an incorrect behavior.
 
@@ -229,13 +225,16 @@ Only approved successful experiences can later enter the training dataset. This 
 
 The next implementation increments should be completed in this order:
 
-1. Strengthen the evaluation rubric while preserving the deterministic evaluator as a baseline.
-2. Add an explicit approval workflow for training examples.
-3. Add benchmark datasets and model-version tracking.
-4. Add an optional local LoRA/QLoRA training script with training dependencies separated from the core runtime.
-5. Train a candidate model, benchmark it against the base model, and promote it only when the benchmark improves.
-6. Add controlled plan execution so Planner and Executor can cooperate without bypassing policy/approval.
-7. Continue to multi-agent and multimodal capabilities only after the core architecture is stable.
+1. Integrate Planner + Executor into a controlled multi-step Agent flow.
+2. Enforce policy and approval checks for every planned action.
+3. Add explicit partial-failure and re-planning behavior.
+4. Promote v0.5 only after its acceptance gate covers the integrated flow.
+5. Promote the existing ReflectionEngine into the accepted v0.6 runtime path.
+6. Promote AutonomousRunner into the accepted v0.7 execution path.
+7. Add an explicit approval workflow for training examples.
+8. Add benchmark datasets and model-version tracking.
+9. Add an optional local LoRA/QLoRA training script with training dependencies separated from the core runtime.
+10. Train a candidate model, benchmark it against the base model, and promote it only when the benchmark improves.
 
 ## Installation
 
@@ -277,13 +276,13 @@ pytest -v
 | `MAX_TOOL_CALLS` | `10` | Reserved tool-call budget |
 | `MEMORY_DB_PATH` | `data/memory.db` | SQLite memory database |
 | `SEMANTIC_MIN_SCORE` | `0.35` | Semantic retrieval threshold |
-| `POLICY_MAX_ITERATIONS` | `5` | Maximum autonomous attempts |
+| `POLICY_MAX_ITERATIONS` | `5` | Maximum autonomous attempts when using an autonomous runner |
 
 ## Existing components
 
 - `ILLM` + `OllamaProvider`;
 - Gemma 3 via Ollama;
-- `Agent` with decision, tools, evaluation, memory, RAG, planning, policy, reflection, and bounded correction;
+- `Agent` with decision, tools, evaluation, memory, RAG, planning, and policy;
 - `BehavioralPolicy`;
 - `FileSystemTool`;
 - `Experience` + `SQLiteMemory`;
