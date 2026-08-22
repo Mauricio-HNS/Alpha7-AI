@@ -29,12 +29,45 @@ def advance_context(text: str, stage: str) -> str:
     index = ORDER.index(stage)
     if index + 1 >= len(ORDER):
         return text
+
     next_stage = ORDER[index + 1]
-    text = re.sub(rf"^{re.escape(stage)}: IN PROGRESS$", f"{stage}: DONE", text, count=1, flags=re.MULTILINE)
-    text = re.sub(rf"^NEXT MILESTONE: {re.escape(stage)}$", f"NEXT MILESTONE: {next_stage}", text, count=1, flags=re.MULTILINE)
-    text = re.sub(rf"^({re.escape(next_stage)}: )TODO$", rf"\1NEXT", text, count=1, flags=re.MULTILINE)
-    text = re.sub(rf"({re.escape(stage)}[^\n]*\[)IN PROGRESS(\])", r"\1DONE\2", text, count=1)
-    text = re.sub(rf"({re.escape(next_stage)}[^\n]*\[)TODO(\])", r"\1NEXT\2", text, count=1)
+
+    # The next run must have exactly one detectable IN PROGRESS milestone.
+    # The previous implementation changed the next milestone to NEXT, which
+    # made the following invocation fail with "No IN PROGRESS milestone".
+    text = re.sub(
+        rf"^{re.escape(stage)}: IN PROGRESS$",
+        f"{stage}: DONE",
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    text = re.sub(
+        rf"^NEXT MILESTONE: {re.escape(stage)}$",
+        f"NEXT MILESTONE: {next_stage}",
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    text = re.sub(
+        rf"^{re.escape(next_stage)}: (?:TODO|NEXT|IN PROGRESS)$",
+        f"{next_stage}: IN PROGRESS",
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    text = re.sub(
+        rf"({re.escape(stage)}[^\n]*\[)IN PROGRESS(\])",
+        r"\1DONE\2",
+        text,
+        count=1,
+    )
+    text = re.sub(
+        rf"({re.escape(next_stage)}[^\n]*\[)(?:TODO|NEXT|IN PROGRESS)(\])",
+        r"\1IN PROGRESS\2",
+        text,
+        count=1,
+    )
     return text
 
 
