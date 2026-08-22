@@ -23,6 +23,8 @@ EXECUTOR
  ↓
 EVALUATION
  ↓
+REFLECTION / JUDGE
+ ↓
 EXPERIENCE
 ```
 
@@ -35,8 +37,8 @@ v0.1  Agent                         [DONE]
 v0.2  Experience Memory             [DONE]
 v0.3  Semantic Memory / BGE-M3      [DONE]
 v0.4  RAG                           [DONE]
-v0.5  Planning + controlled execute [IN PROGRESS]
-v0.6  Evaluation / Reflection       [TODO]
+v0.5  Planning + controlled execute [DONE]
+v0.6  Evaluation / Reflection       [IN PROGRESS]
 v0.7  Autonomous Loops              [TODO]
 v0.8  Multi-Agent                   [TODO]
 v0.9  Multimodal                    [TODO]
@@ -64,6 +66,24 @@ Implemented:
 
 `Agent.run()` remains one attempt. A planned attempt can contain multiple tool steps, but reflection and retry are not hidden inside the Agent.
 
+## v0.6 — Evaluation + Reflection
+
+The evaluation layer now has an explicit single-attempt pipeline:
+
+```text
+Agent.run()
+   ↓
+Deterministic Evaluation
+   ↓
+ReflectionEngine / LLM Judge
+   ↓
+EvaluatedRunResult
+```
+
+`EvaluationPipeline` connects the existing Agent evaluation with `ReflectionEngine` without adding retry behavior. This is intentional: bounded retry belongs to v0.7 and is implemented separately by `AutonomousRunner`.
+
+The v0.6 acceptance gate requires the complete test suite plus dedicated Reflection and Evaluation Pipeline tests.
+
 ## Execution flow
 
 ```text
@@ -82,6 +102,8 @@ For every step:
  ↓
 Evaluation
  ↓
+Reflection / Judge
+ ↓
 Experience
 ```
 
@@ -93,13 +115,7 @@ The current Executor is fail-fast. Partial-failure recovery and re-planning belo
 
 The acceptance gate is implemented in `scripts/stage_gate.py` and executed by `.github/workflows/stage-gate.yml`.
 
-For v0.5 the gate requires:
-
-1. complete `pytest -v`;
-2. planner tests;
-3. executor tests;
-4. Planner → Executor → Agent integration tests;
-5. Stage Gate behavior tests.
+For each active milestone, the gate requires the complete test suite plus milestone-specific acceptance tests. v0.5 validates Planner → Executor → Agent integration. v0.6 validates Reflection and the single-attempt Evaluation Pipeline.
 
 Automation rules:
 
@@ -111,7 +127,7 @@ Automation rules:
 - Unsupported milestones are blocked instead of being promoted optimistically.
 - Automatic promotion commits use `[skip ci]` to prevent a promotion loop.
 
-This prevents the previous failure mode where CI could advance the roadmap before the real integration was part of the acceptance criteria.
+This prevents the previous failure mode where CI could advance the roadmap before the real implementation was part of the acceptance criteria.
 
 ## Reflection and autonomy
 
@@ -129,7 +145,7 @@ Correction
 Bounded retry
 ```
 
-`ReflectionEngine` and `AutonomousRunner` are being developed as separate components so the Agent does not accidentally contain two competing retry loops.
+`ReflectionEngine` evaluates one attempt. `EvaluationPipeline` connects that evaluation to the Agent without retrying. `AutonomousRunner` remains a separate v0.7 component responsible for bounded correction and retry.
 
 ## Learning architecture
 
@@ -209,15 +225,14 @@ pytest -v
 
 ## Next implementation order
 
-1. Finish and automatically validate v0.5.
-2. Integrate deterministic evaluation with Reflection/Judge.
-3. Add safe correction and bounded autonomous retry.
-4. Add explicit partial-failure and re-planning behavior.
-5. Add approval workflow for training examples.
-6. Add benchmark datasets and model version tracking.
-7. Add optional local LoRA/QLoRA training.
-8. Benchmark candidate models against the base model.
-9. Promote a trained model only when measured performance improves.
+1. Finish and automatically validate v0.6.
+2. Integrate bounded autonomous correction and retry as v0.7.
+3. Add explicit partial-failure and re-planning behavior.
+4. Add approval workflow for training examples.
+5. Add benchmark datasets and model version tracking.
+6. Add optional local LoRA/QLoRA training.
+7. Benchmark candidate models against the base model.
+8. Promote a trained model only when measured performance improves.
 
 ## Project philosophy
 
