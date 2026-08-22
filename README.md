@@ -12,6 +12,17 @@ Alpha7 is a local-first AI agent platform built from scratch in Python, without 
 
 The project is designed as the foundation of a commercial AI agent platform, not merely as an experiment or framework.
 
+## Technology Battery
+
+![Alpha7 Technology Battery](docs/technology-battery.svg)
+
+**Initial Technology Score: 61 / 100**  
+**Technology Maturity Threshold: 70 / 100**
+
+The Technology Battery measures technological capability across Intelligence, Agency, Control and Production. These values are an initial baseline and are not an official technical audit.
+
+[Full Technology Battery methodology](docs/TECHNOLOGY_BATTERY.md)
+
 ## Product vision
 
 **AI Agent Control & Orchestration Platform**
