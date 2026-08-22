@@ -2,33 +2,147 @@
 
 ## From AI Model to Controlled Autonomous Agent
 
-Zero-Agent is a local-first AI agent architecture built from scratch in Python, without an agent framework. The project progressively adds memory, RAG, planning, tool execution, evaluation, reflection, bounded autonomy and, later, controlled learning.
+> **A platform for building, executing, controlling and auditing autonomous AI agents.**
 
-## Core principle
+**Core promise:** **Autonomy without losing control.**
+
+Zero-Agent is the current technical repository and working name for a local-first AI agent platform being built from scratch in Python. The architecture progressively adds memory, RAG, planning, controlled tool execution, evaluation, reflection, bounded autonomy and controlled learning.
+
+The project is being developed as a potential commercial platform, not only as an agent framework or technical experiment.
+
+## Product vision
+
+The intended product category is **AI Agent Control & Orchestration Platform**.
+
+The product is designed around a simple principle:
 
 ```text
-USER
- ↓
+The model proposes.
+The system controls.
+The user defines the authority.
+The platform records what happened.
+```
+
+Core product lifecycle:
+
+```text
+BUILD
+  ↓
+DEPLOY
+  ↓
+CONTROL
+  ↓
+EXECUTE
+  ↓
+EVALUATE
+  ↓
+AUDIT
+  ↓
+IMPROVE
+```
+
+See [Product Vision](docs/PRODUCT_VISION.md) and [Branding Strategy](docs/BRANDING.md).
+
+## Core architecture
+
+```text
+                         PLATFORM
+                            │
+             ┌──────────────┼──────────────┐
+             │              │              │
+           AGENTS         CONTROL       EVALUATION
+             │              │              │
+             └──────────────┼──────────────┘
+                            │
+                       EXECUTION
+                            │
+                       EXPERIENCE
+                            │
+                        LEARNING
+```
+
+Current agent flow:
+
+```text
+USER GOAL
+   ↓
 POLICY
- ↓
+   ↓
 MEMORY + RAG
- ↓
+   ↓
 PLANNER
- ↓
+   ↓
 VALIDATED PLAN
- ↓
+   ↓
 POLICY CHECK
- ↓
+   ↓
 EXECUTOR
- ↓
+   ↓
 EVALUATION
- ↓
+   ↓
 REFLECTION / JUDGE
- ↓
+   ↓
 EXPERIENCE
 ```
 
-The model proposes. The system controls. Memory and RAG are DATA, not instructions.
+Memory, RAG, plans, tool observations and model output are treated as DATA, not as authority to override policy.
+
+## Commercial product layers
+
+### Agent Runtime
+
+- Agent
+- Planner
+- Plan validation
+- Executor
+- Tools
+- Bounded autonomous execution
+
+### Intelligence Layer
+
+- Local LLM providers
+- Memory
+- Semantic memory
+- RAG
+- Knowledge
+- Experience
+
+### Control Plane
+
+- Behavioral policies
+- Tool permissions
+- Approval requirements
+- Iteration limits
+- Agent configuration
+
+### Evaluation & Trust
+
+- Deterministic evaluation
+- LLM Judge
+- Reflection
+- Auditability
+- Replay
+- Benchmarks
+
+### Learning
+
+```text
+Experience
+ ↓
+Evaluation
+ ↓
+Approved data
+ ↓
+Training dataset
+ ↓
+Candidate model
+ ↓
+Benchmark
+ ↓
+Promote only if improved
+```
+
+The system must never silently modify model weights after an ordinary interaction.
 
 ## Current state
 
@@ -38,16 +152,32 @@ v0.2  Experience Memory             [DONE]
 v0.3  Semantic Memory / BGE-M3      [DONE]
 v0.4  RAG                           [DONE]
 v0.5  Planning + controlled execute [DONE]
-v0.6  Evaluation / Reflection       [IN PROGRESS]
-v0.7  Autonomous Loops              [TODO]
+v0.6  Evaluation / Reflection       [DONE]
+v0.7  Autonomous Loops              [IN PROGRESS]
 v0.8  Multi-Agent                   [TODO]
 v0.9  Multimodal                    [TODO]
 v1.0  Stable Agent Architecture     [TODO]
 v1.x  Local Model Experiments       [TODO]
-v2.x  Fine-Tuning                  [TODO]
+v2.x  Fine-Tuning                   [TODO]
+v3.x  PyTorch Experiments           [TODO]
+v4.x  Training Experiments          [TODO]
+v5.x  Custom Architectures          [TODO]
 ```
 
 A milestone becomes DONE only when its code, tests, documentation and automated acceptance gate all agree.
+
+## Trust model
+
+1. The user defines the mission and behavioral policy.
+2. The model proposes actions; it does not define its own authority.
+3. Memory and retrieved knowledge are DATA, not instructions.
+4. Planned actions are validated before execution.
+5. Configured tools can require explicit approval.
+6. Evaluation is separate from execution.
+7. Reflection cannot bypass policy.
+8. Autonomous retry is bounded.
+9. Learning requires approved examples and measurement.
+10. The system prefers failing closed to silently exceeding its authority.
 
 ## v0.5 — Planning + controlled execution
 
@@ -68,7 +198,7 @@ Implemented:
 
 ## v0.6 — Evaluation + Reflection
 
-The evaluation layer now has an explicit single-attempt pipeline:
+The evaluation layer has an explicit single-attempt pipeline:
 
 ```text
 Agent.run()
@@ -80,42 +210,37 @@ ReflectionEngine / LLM Judge
 EvaluatedRunResult
 ```
 
-`EvaluationPipeline` connects the existing Agent evaluation with `ReflectionEngine` without adding retry behavior. This is intentional: bounded retry belongs to v0.7 and is implemented separately by `AutonomousRunner`.
+`EvaluationPipeline` connects Agent evaluation with `ReflectionEngine` without adding retry behavior. Bounded retry belongs to v0.7 and is implemented separately by `AutonomousRunner`.
 
 The v0.6 acceptance gate requires the complete test suite plus dedicated Reflection and Evaluation Pipeline tests.
 
-## Execution flow
+## v0.7 — Autonomous loops
+
+The next implementation milestone introduces bounded autonomous correction and retry while keeping policy enforcement outside the model's authority.
+
+Target flow:
 
 ```text
-Goal
- ↓
-Memory / RAG
- ↓
-Planner
- ↓
-Plan validation
- ↓
-For every step:
-    Policy check
-    ↓
-    Executor
+Agent.run()
  ↓
 Evaluation
  ↓
 Reflection / Judge
  ↓
-Experience
+Correction
+ ↓
+Policy check
+ ↓
+Bounded retry
+ ↓
+Evaluation
 ```
 
-If a planned tool requires explicit approval, execution stops before the tool is called.
-
-The current Executor is fail-fast. Partial-failure recovery and re-planning belong to later milestones.
+Partial-failure recovery and re-planning will be introduced explicitly rather than hidden inside the base Agent.
 
 ## Stage Gate automation
 
 The acceptance gate is implemented in `scripts/stage_gate.py` and executed by `.github/workflows/stage-gate.yml`.
-
-For each active milestone, the gate requires the complete test suite plus milestone-specific acceptance tests. v0.5 validates Planner → Executor → Agent integration. v0.6 validates Reflection and the single-attempt Evaluation Pipeline.
 
 Automation rules:
 
@@ -127,48 +252,6 @@ Automation rules:
 - Unsupported milestones are blocked instead of being promoted optimistically.
 - Automatic promotion commits use `[skip ci]` to prevent a promotion loop.
 
-This prevents the previous failure mode where CI could advance the roadmap before the real implementation was part of the acceptance criteria.
-
-## Reflection and autonomy
-
-Reflection is deliberately outside the base Agent:
-
-```text
-Agent.run() — one attempt
- ↓
-Evaluation
- ↓
-Reflection / Judge
- ↓
-Correction
- ↓
-Bounded retry
-```
-
-`ReflectionEngine` evaluates one attempt. `EvaluationPipeline` connects that evaluation to the Agent without retrying. `AutonomousRunner` remains a separate v0.7 component responsible for bounded correction and retry.
-
-## Learning architecture
-
-Memory is not training.
-
-```text
-Experience
- ↓
-Evaluation
- ↓
-Approved example
- ↓
-JSONL dataset
- ↓
-LoRA / QLoRA candidate
- ↓
-Benchmark against base model
- ↓
-Promote only if improved
-```
-
-The system must never silently modify model weights after an ordinary interaction.
-
 ## Local-first stack
 
 - Python 3.12
@@ -179,7 +262,7 @@ The system must never silently modify model weights after an ordinary interactio
 - Pydantic for validation
 - pytest for automated tests
 
-No paid model API is required by the architecture.
+No paid model API is required by the current architecture.
 
 ## Configuration
 
@@ -223,20 +306,20 @@ Tests:
 pytest -v
 ```
 
-## Next implementation order
+## Implementation order
 
-1. Finish and automatically validate v0.6.
-2. Integrate bounded autonomous correction and retry as v0.7.
-3. Add explicit partial-failure and re-planning behavior.
-4. Add approval workflow for training examples.
-5. Add benchmark datasets and model version tracking.
-6. Add optional local LoRA/QLoRA training.
-7. Benchmark candidate models against the base model.
-8. Promote a trained model only when measured performance improves.
+1. Complete v0.7 bounded autonomous correction and retry.
+2. Add explicit partial-failure and re-planning behavior.
+3. Add approval workflow for training examples.
+4. Add benchmark datasets and model version tracking.
+5. Add optional local LoRA/QLoRA training.
+6. Benchmark candidate models against the base model.
+7. Promote a trained model only when measured performance improves.
+8. Stabilize the runtime before adding commercial API, SDK, dashboard and hosted-platform layers.
 
 ## Project philosophy
 
-The goal is not merely to generate text. The goal is to understand and implement the mechanisms that turn a model into a controlled software agent:
+The goal is not merely to generate text. The goal is to implement the mechanisms that turn a model into a controlled software agent:
 
 ```text
 Understand
