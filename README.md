@@ -189,6 +189,22 @@ The long-term training experiments will use optional local dependencies so the l
 
 Hardware and electricity are the practical costs of local execution; the software architecture does not require a paid model API.
 
+## CI and Stage Gate
+
+GitHub Actions validates the project independently from the local development environment.
+
+The workflow in `.github/workflows/stage-gate.yml` runs `scripts/stage_gate.py`. The stage gate must have an explicit acceptance definition for the current milestone; it must never fail merely because a newly reached milestone has not yet been added to the gate registry.
+
+For v0.5, the automated gate now requires:
+
+1. the complete `pytest -v` suite to pass;
+2. the dedicated planner tests to pass;
+3. the dedicated executor tests to pass.
+
+When the v0.5 gate passes on `main`, the workflow may promote `PROJECT_CONTEXT.md` to the next milestone. If a future milestone does not yet have real acceptance checks, the gate intentionally blocks promotion until those checks are implemented.
+
+This change fixes the previous CI failure where v0.5 was already the documented milestone but `SUPPORTED_GATES` still stopped at v0.4.
+
 ## What happens when the agent fails
 
 A failure is not automatically treated as a new rule.
