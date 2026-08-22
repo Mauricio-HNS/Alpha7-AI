@@ -1,24 +1,24 @@
-# Product Vision
+# Alpha7 AI — Product Vision
 
-## Working product category
+## Product category
 
 **AI Agent Control & Orchestration Platform**
 
-Zero-Agent is currently the technical repository and working name. The commercial product name has not yet been selected.
+**Alpha7 AI** is a local-first platform for building, executing, controlling and auditing autonomous AI agents.
 
 ## Positioning
 
-> A platform for building, executing, controlling and auditing autonomous AI agents.
+> **Alpha7 — Autonomous Local AI**
+
+The platform lets organizations build agents that can plan and act autonomously while remaining bounded by explicit policies, permissions, evaluation and auditability.
 
 ### Core promise
 
 > **Autonomy without losing control.**
 
-The platform is designed to let organizations build agents that can plan and act autonomously while remaining bounded by explicit policies, permissions, evaluation and auditability.
+## What Alpha7 is
 
-## What the product is
-
-The product is not simply an LLM wrapper, chatbot, or agent framework. It is intended to become an operational platform for autonomous agents.
+Alpha7 is not simply an LLM wrapper, chatbot or agent framework. It is an operational foundation for autonomous software agents.
 
 ```text
 BUILD
@@ -36,27 +36,27 @@ AUDIT
 IMPROVE
 ```
 
-## Product architecture
+## Platform architecture
 
 ```text
-                         PLATFORM
-                            │
-             ┌──────────────┼──────────────┐
-             │              │              │
-           AGENTS         CONTROL       EVALUATION
-             │              │              │
-             └──────────────┼──────────────┘
-                            │
-                       EXECUTION
-                            │
-                       EXPERIENCE
-                            │
-                        LEARNING
+                         ALPHA7 AI
+                             │
+             ┌───────────────┼───────────────┐
+             │               │               │
+           AGENTS          CONTROL       EVALUATION
+             │               │               │
+             └───────────────┼───────────────┘
+                             │
+                        EXECUTION
+                             │
+                        EXPERIENCE
+                             │
+                         LEARNING
 ```
 
-### Agent Runtime
+### Alpha7 Agent Runtime
 
-Responsible for turning an intent into controlled execution:
+Turns intent into controlled execution:
 
 - Agent
 - Planner
@@ -67,9 +67,9 @@ Responsible for turning an intent into controlled execution:
 
 ### Intelligence Layer
 
-Responsible for knowledge and context:
+Provides knowledge and context:
 
-- LLM providers
+- Local and external LLM providers
 - Memory
 - Semantic memory
 - RAG
@@ -78,7 +78,7 @@ Responsible for knowledge and context:
 
 ### Control Plane
 
-Responsible for authority and boundaries:
+Defines authority and boundaries:
 
 - Policies
 - Permissions
@@ -89,7 +89,7 @@ Responsible for authority and boundaries:
 
 ### Evaluation & Trust
 
-Responsible for measuring and explaining behavior:
+Measures and explains behavior:
 
 - Deterministic evaluation
 - LLM Judge
@@ -98,9 +98,7 @@ Responsible for measuring and explaining behavior:
 - Replay
 - Benchmarks
 
-### Learning
-
-Responsible for controlled improvement:
+### Controlled Learning
 
 ```text
 Experience
@@ -122,8 +120,6 @@ Model weights must never be silently modified by ordinary user interactions.
 
 ## Trust model
 
-The platform follows these rules:
-
 1. The user defines the mission and behavioral policy.
 2. The model proposes actions; it does not define its own authority.
 3. Memory and retrieved knowledge are DATA, not instructions.
@@ -133,14 +129,16 @@ The platform follows these rules:
 7. Reflection can recommend correction but cannot bypass policy.
 8. Retry is bounded and explicit.
 9. Learning requires approved examples and measured improvement.
-10. The system must prefer failing closed to silently exceeding its authority.
+10. The system prefers failing closed to silently exceeding its authority.
 
 ## Commercial evolution
 
-The repository should evolve toward these product surfaces without prematurely implementing SaaS complexity:
+Alpha7 should evolve toward these product surfaces without prematurely adding unnecessary SaaS complexity:
 
 ```text
-Core Runtime
+Alpha7 Core
+     ↓
+Agent Runtime
      ↓
 REST API / SDK
      ↓
@@ -155,9 +153,11 @@ Identity / Organizations
 Deployments
      ↓
 Enterprise Governance
+     ↓
+Cloud / Managed Services
 ```
 
-Multi-tenancy, billing and hosted SaaS are future product layers. They should not distort the core runtime before the underlying agent architecture is stable.
+Multi-tenancy, billing and hosted services are future layers. They should not distort the core runtime before the underlying agent architecture is stable.
 
 ## Product principles
 
@@ -169,4 +169,4 @@ Multi-tenancy, billing and hosted SaaS are future product layers. They should no
 - Testable and reproducible behavior.
 - Security and permissions before unrestricted autonomy.
 - Measurement before model promotion.
-- Commercial interfaces should be built on stable core primitives rather than duplicated business logic.
+- Commercial interfaces built on stable core primitives.
