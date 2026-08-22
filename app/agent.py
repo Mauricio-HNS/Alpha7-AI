@@ -95,6 +95,45 @@ class Agent:
         return "\n".join(f"- {t.name}: {t.description}" for t in self.tools.values())
 
     def run(self, user_input: str) -> AgentResult:
+        """Run one attempt and, when configured, reflect and retry safely."""
+        current_input = user_input
+        last_result: Optional[AgentResult] = None
+
+        for attempt in range(1, self.policy.max_iterations + 1):
+            result = self._run_once(current_input)
+            last_result = result
+
+            # Approval-required actions are intentionally terminal.
+            if result.approval_required:
+                return result
+
+            from app.reflection import ReflectionEngine
+
+            reflection = ReflectionEngine(self.llm, policy=self.policy).reflect(user_input, result)
+            logger.info(
+                "REFLECTION | attempt=%d success=%s score=%.2f retry=%s",
+                attempt,
+                reflection.success,
+                reflection.score,
+                reflection.retry,
+            )
+
+            if reflection.success or not reflection.retry or attempt >= self.policy.max_iterations:
+                return result
+
+            correction = reflection.correction.strip()
+            if not correction:
+                return result
+
+            current_input = (
+                f"Tarefa original:\n{user_input}\n\n"
+                f"Correção determinada pelo judge:\n{correction}\n\n"
+                "Execute novamente a tarefa aplicando somente essa correção."
+            )
+
+        return last_result or AgentResult(response="Não foi possível executar a tarefa.")
+
+    def _run_once(self, user_input: str) -> AgentResult:
         logger.info("PERCEPTION | input=%r", user_input)
         relevant_experiences = self._search_memory(user_input)
         rag_context = self._retrieve_context(user_input)
