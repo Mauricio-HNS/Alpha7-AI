@@ -1,20 +1,22 @@
-# Zero-Agent
+# Alpha7 AI
 
-## From AI Model to Controlled Autonomous Agent
+## Autonomous AI, with control
 
-> **A platform for building, executing, controlling and auditing autonomous AI agents.**
+> **Alpha7 — Autonomous Local AI**
+
+> A platform for building, executing, controlling and auditing autonomous AI agents.
 
 **Core promise:** **Autonomy without losing control.**
 
-Zero-Agent is the current technical repository and working name for a local-first AI agent platform being built from scratch in Python. The architecture progressively adds memory, RAG, planning, controlled tool execution, evaluation, reflection, bounded autonomy and controlled learning.
+Alpha7 is a local-first AI agent platform built from scratch in Python, without an agent framework. It progressively combines memory, RAG, planning, controlled tool execution, evaluation, reflection, bounded autonomy and controlled learning.
 
-The project is being developed as a potential commercial platform, not only as an agent framework or technical experiment.
+The project is designed as the foundation of a commercial AI agent platform, not merely as an experiment or framework.
 
 ## Product vision
 
-The intended product category is **AI Agent Control & Orchestration Platform**.
+**AI Agent Control & Orchestration Platform**
 
-The product is designed around a simple principle:
+Alpha7 is built around a simple principle:
 
 ```text
 The model proposes.
@@ -23,22 +25,10 @@ The user defines the authority.
 The platform records what happened.
 ```
 
-Core product lifecycle:
+Core lifecycle:
 
 ```text
-BUILD
-  ↓
-DEPLOY
-  ↓
-CONTROL
-  ↓
-EXECUTE
-  ↓
-EVALUATE
-  ↓
-AUDIT
-  ↓
-IMPROVE
+BUILD → DEPLOY → CONTROL → EXECUTE → EVALUATE → AUDIT → IMPROVE
 ```
 
 See [Product Vision](docs/PRODUCT_VISION.md) and [Branding Strategy](docs/BRANDING.md).
@@ -46,19 +36,19 @@ See [Product Vision](docs/PRODUCT_VISION.md) and [Branding Strategy](docs/BRANDI
 ## Core architecture
 
 ```text
-                         PLATFORM
-                            │
-             ┌──────────────┼──────────────┐
-             │              │              │
-           AGENTS         CONTROL       EVALUATION
-             │              │              │
-             └──────────────┼──────────────┘
-                            │
-                       EXECUTION
-                            │
-                       EXPERIENCE
-                            │
-                        LEARNING
+                         ALPHA7 PLATFORM
+                               │
+              ┌────────────────┼────────────────┐
+              │                │                │
+            AGENTS           CONTROL        EVALUATION
+              │                │                │
+              └────────────────┼────────────────┘
+                               │
+                          EXECUTION
+                               │
+                          EXPERIENCE
+                               │
+                           LEARNING
 ```
 
 Current agent flow:
@@ -85,12 +75,11 @@ REFLECTION / JUDGE
 EXPERIENCE
 ```
 
-Memory, RAG, plans, tool observations and model output are treated as DATA, not as authority to override policy.
+Memory, RAG, plans, observations and model output are treated as data, never as authority to override policy.
 
-## Commercial product layers
+## Platform layers
 
-### Agent Runtime
-
+### Alpha7 Runtime
 - Agent
 - Planner
 - Plan validation
@@ -99,7 +88,6 @@ Memory, RAG, plans, tool observations and model output are treated as DATA, not 
 - Bounded autonomous execution
 
 ### Intelligence Layer
-
 - Local LLM providers
 - Memory
 - Semantic memory
@@ -108,7 +96,6 @@ Memory, RAG, plans, tool observations and model output are treated as DATA, not 
 - Experience
 
 ### Control Plane
-
 - Behavioral policies
 - Tool permissions
 - Approval requirements
@@ -116,7 +103,6 @@ Memory, RAG, plans, tool observations and model output are treated as DATA, not 
 - Agent configuration
 
 ### Evaluation & Trust
-
 - Deterministic evaluation
 - LLM Judge
 - Reflection
@@ -124,7 +110,7 @@ Memory, RAG, plans, tool observations and model output are treated as DATA, not 
 - Replay
 - Benchmarks
 
-### Learning
+### Controlled Learning
 
 ```text
 Experience
@@ -142,9 +128,9 @@ Benchmark
 Promote only if improved
 ```
 
-The system must never silently modify model weights after an ordinary interaction.
+Alpha7 must never silently modify model weights after an ordinary interaction.
 
-## Current state
+## Current roadmap
 
 ```text
 v0.1  Agent                         [DONE]
@@ -164,7 +150,7 @@ v4.x  Training Experiments          [TODO]
 v5.x  Custom Architectures          [TODO]
 ```
 
-A milestone becomes DONE only when its code, tests, documentation and automated acceptance gate all agree.
+A milestone becomes DONE only when its code, tests, documentation and automated acceptance gate agree.
 
 ## Trust model
 
@@ -178,79 +164,6 @@ A milestone becomes DONE only when its code, tests, documentation and automated 
 8. Autonomous retry is bounded.
 9. Learning requires approved examples and measurement.
 10. The system prefers failing closed to silently exceeding its authority.
-
-## v0.5 — Planning + controlled execution
-
-Implemented:
-
-- `IPlanner`, `Plan`, `PlanStep` and `LLMPlanner`;
-- Pydantic validation of generated plans;
-- `IExecutor`, `ToolExecutor` and `StepResult`;
-- sequential fail-fast plan execution;
-- `Agent(planner=..., executor=...)` integration;
-- Policy validation before every planned action;
-- explicit approval protection for configured tools;
-- `POLICY_MAX_ITERATIONS` wired into the CLI policy;
-- integration tests for Planner → Executor → Agent;
-- automated stage gate with explicit promotion control.
-
-`Agent.run()` remains one attempt. A planned attempt can contain multiple tool steps, but reflection and retry are not hidden inside the Agent.
-
-## v0.6 — Evaluation + Reflection
-
-The evaluation layer has an explicit single-attempt pipeline:
-
-```text
-Agent.run()
-   ↓
-Deterministic Evaluation
-   ↓
-ReflectionEngine / LLM Judge
-   ↓
-EvaluatedRunResult
-```
-
-`EvaluationPipeline` connects Agent evaluation with `ReflectionEngine` without adding retry behavior. Bounded retry belongs to v0.7 and is implemented separately by `AutonomousRunner`.
-
-The v0.6 acceptance gate requires the complete test suite plus dedicated Reflection and Evaluation Pipeline tests.
-
-## v0.7 — Autonomous loops
-
-The next implementation milestone introduces bounded autonomous correction and retry while keeping policy enforcement outside the model's authority.
-
-Target flow:
-
-```text
-Agent.run()
- ↓
-Evaluation
- ↓
-Reflection / Judge
- ↓
-Correction
- ↓
-Policy check
- ↓
-Bounded retry
- ↓
-Evaluation
-```
-
-Partial-failure recovery and re-planning will be introduced explicitly rather than hidden inside the base Agent.
-
-## Stage Gate automation
-
-The acceptance gate is implemented in `scripts/stage_gate.py` and executed by `.github/workflows/stage-gate.yml`.
-
-Automation rules:
-
-- Pull requests validate but cannot promote a milestone.
-- Pushes to `main` may promote a milestone automatically.
-- Promotion requires `PROMOTE_STAGE=true`.
-- The context must contain exactly one `IN PROGRESS` milestone.
-- `NEXT MILESTONE` must match the defined milestone order.
-- Unsupported milestones are blocked instead of being promoted optimistically.
-- Automatic promotion commits use `[skip ci]` to prevent a promotion loop.
 
 ## Local-first stack
 
@@ -306,18 +219,31 @@ Tests:
 pytest -v
 ```
 
-## Implementation order
+## Project direction
 
-1. Complete v0.7 bounded autonomous correction and retry.
-2. Add explicit partial-failure and re-planning behavior.
-3. Add approval workflow for training examples.
-4. Add benchmark datasets and model version tracking.
-5. Add optional local LoRA/QLoRA training.
-6. Benchmark candidate models against the base model.
-7. Promote a trained model only when measured performance improves.
-8. Stabilize the runtime before adding commercial API, SDK, dashboard and hosted-platform layers.
+Alpha7 is intended to evolve from a local runtime into a complete agent infrastructure platform:
 
-## Project philosophy
+```text
+Alpha7 Core
+    ↓
+Agent Runtime
+    ↓
+REST API / SDK
+    ↓
+CLI
+    ↓
+Observability
+    ↓
+Dashboard
+    ↓
+Enterprise Governance
+    ↓
+Cloud / Managed Services
+```
+
+The core remains local-first and provider-agnostic. Commercial services should be built around stable runtime primitives rather than compromise them.
+
+## Philosophy
 
 The goal is not merely to generate text. The goal is to implement the mechanisms that turn a model into a controlled software agent:
 
