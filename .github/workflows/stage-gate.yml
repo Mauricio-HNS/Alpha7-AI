@@ -43,6 +43,8 @@ jobs:
         run: ollama pull bge-m3:latest
 
       - name: Run automatic stage gate
+        env:
+          PROMOTE_STAGE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'true' || 'false' }}
         run: python scripts/stage_gate.py
 
       - name: Commit automatic stage promotion
