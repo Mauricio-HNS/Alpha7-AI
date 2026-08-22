@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1120" viewBox="0 0 1200 1120">
+<rect width="1200" height="1120" rx="28" fill="#0b0f0c"/>
+<rect x="1" y="1" width="1198" height="1118" rx="28" fill="none" stroke="#39ff14" stroke-opacity=".35"/>
+<text x="600" y="58" text-anchor="middle" fill="#39ff14" font-family="Arial,Helvetica,sans-serif" font-size="30" font-weight="700">ALPHA7 TECHNOLOGY BATTERY</text>
+<text x="600" y="88" text-anchor="middle" fill="#a8b3aa" font-family="Arial,Helvetica,sans-serif" font-size="15">Initial capability baseline • scores require repository audit evidence</text>
+
+<text x="55" y="132" fill="#39ff14" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="700">INTELLIGENCE</text>
+<text x="55" y="162" fill="#dce5de" font-family="Arial,Helvetica,sans-serif" font-size="14">Architecture</text>
+<rect x="190" y="148" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="148" width="560" height="20" rx="10" fill="#39ff14"/><text x="920" y="164" fill="#39ff14" font-family="Arial" font-size="15">80</text>
+<text x="55" y="194" fill="#dce5de" font-family="Arial" font-size="14">Reasoning</text><rect x="190" y="180" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="180" width="420" height="20" rx="10" fill="#39ff14"/><text x="920" y="196" fill="#39ff14" font-family="Arial" font-size="15">60</text>
+<text x="55" y="226" fill="#dce5de" font-family="Arial" font-size="14">Planning</text><rect x="190" y="212" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="212" width="490" height="20" rx="10" fill="#39ff14"/><text x="920" y="228" fill="#39ff14" font-family="Arial" font-size="15">70</text>
+<text x="55" y="258" fill="#dce5de" font-family="Arial" font-size="14">Memory</text><rect x="190" y="244" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="244" width="490" height="20" rx="10" fill="#39ff14"/><text x="920" y="260" fill="#39ff14" font-family="Arial" font-size="15">70</text>
+<text x="55" y="290" fill="#dce5de" font-family="Arial" font-size="14">RAG</text><rect x="190" y="276" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="276" width="490" height="20" rx="10" fill="#39ff14"/><text x="920" y="292" fill="#39ff14" font-family="Arial" font-size="15">70</text>
+<text x="55" y="322" fill="#dce5de" font-family="Arial" font-size="14">Reflection</text><rect x="190" y="308" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="308" width="455" height="20" rx="10" fill="#39ff14"/><text x="920" y="324" fill="#39ff14" font-family="Arial" font-size="15">65</text>
+<text x="55" y="354" fill="#dce5de" font-family="Arial" font-size="14">Learning</text><rect x="190" y="340" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="340" width="245" height="20" rx="10" fill="#39ff14"/><text x="920" y="356" fill="#39ff14" font-family="Arial" font-size="15">35</text>
+
+<text x="55" y="405" fill="#39ff14" font-family="Arial" font-size="20" font-weight="700">AGENCY</text>
+<text x="55" y="435" fill="#dce5de" font-family="Arial" font-size="14">Agent Runtime</text><rect x="190" y="421" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="421" width="525" height="20" rx="10" fill="#39ff14"/><text x="920" y="437" fill="#39ff14" font-family="Arial" font-size="15">75</text>
+<text x="55" y="467" fill="#dce5de" font-family="Arial" font-size="14">Tool Execution</text><rect x="190" y="453" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="453" width="525" height="20" rx="10" fill="#39ff14"/><text x="920" y="469" fill="#39ff14" font-family="Arial" font-size="15">75</text>
+<text x="55" y="499" fill="#dce5de" font-family="Arial" font-size="14">Autonomy</text><rect x="190" y="485" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="485" width="350" height="20" rx="10" fill="#39ff14"/><text x="920" y="501" fill="#39ff14" font-family="Arial" font-size="15">50</text>
+<text x="55" y="531" fill="#dce5de" font-family="Arial" font-size="14">Multi-Agent</text><rect x="190" y="517" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="517" width="140" height="20" rx="10" fill="#39ff14"/><text x="920" y="533" fill="#39ff14" font-family="Arial" font-size="15">20</text>
+
+<text x="55" y="582" fill="#39ff14" font-family="Arial" font-size="20" font-weight="700">CONTROL</text>
+<text x="55" y="612" fill="#dce5de" font-family="Arial" font-size="14">Safety / Control</text><rect x="190" y="598" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="598" width="525" height="20" rx="10" fill="#39ff14"/><text x="920" y="614" fill="#39ff14" font-family="Arial" font-size="15">75</text>
+<text x="55" y="644" fill="#dce5de" font-family="Arial" font-size="14">Evaluation</text><rect x="190" y="630" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="630" width="490" height="20" rx="10" fill="#39ff14"/><text x="920" y="646" fill="#39ff14" font-family="Arial" font-size="15">70</text>
+<text x="55" y="676" fill="#dce5de" font-family="Arial" font-size="14">Security</text><rect x="190" y="662" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="662" width="350" height="20" rx="10" fill="#39ff14"/><text x="920" y="678" fill="#39ff14" font-family="Arial" font-size="15">50</text>
+<text x="55" y="708" fill="#dce5de" font-family="Arial" font-size="14">Auditability</text><rect x="190" y="694" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="694" width="385" height="20" rx="10" fill="#39ff14"/><text x="920" y="710" fill="#39ff14" font-family="Arial" font-size="15">55</text>
+<text x="55" y="740" fill="#dce5de" font-family="Arial" font-size="14">Observability</text><rect x="190" y="726" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="726" width="280" height="20" rx="10" fill="#39ff14"/><text x="920" y="742" fill="#39ff14" font-family="Arial" font-size="15">40</text>
+
+<text x="55" y="791" fill="#39ff14" font-family="Arial" font-size="20" font-weight="700">PRODUCTION</text>
+<text x="55" y="821" fill="#dce5de" font-family="Arial" font-size="14">Infrastructure</text><rect x="190" y="807" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="807" width="280" height="20" rx="10" fill="#39ff14"/><text x="920" y="823" fill="#39ff14" font-family="Arial" font-size="15">40</text>
+<text x="55" y="853" fill="#dce5de" font-family="Arial" font-size="14">Enterprise</text><rect x="190" y="839" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="839" width="210" height="20" rx="10" fill="#39ff14"/><text x="920" y="855" fill="#39ff14" font-family="Arial" font-size="15">30</text>
+<text x="55" y="885" fill="#dce5de" font-family="Arial" font-size="14">Multimodal</text><rect x="190" y="871" width="700" height="20" rx="10" fill="#172019"/><rect x="190" y="871" width="70" height="20" rx="10" fill="#39ff14"/><text x="920" y="887" fill="#39ff14" font-family="Arial" font-size="15">10</text>
+
+<line x1="55" y1="920" x2="1145" y2="920" stroke="#39ff14" stroke-opacity=".25"/>
+<text x="55" y="962" fill="#a8b3aa" font-family="Arial" font-size="15">TECHNOLOGY SCORE</text><text x="300" y="966" fill="#39ff14" font-family="Arial" font-size="32" font-weight="700">61 / 100</text>
+<text x="600" y="962" fill="#a8b3aa" font-family="Arial" font-size="15">MATURITY THRESHOLD</text><text x="875" y="966" fill="#39ff14" font-family="Arial" font-size="32" font-weight="700">70</text>
+<rect x="55" y="990" width="1090" height="28" rx="14" fill="#172019"/><rect x="55" y="990" width="664.9" height="28" rx="14" fill="#39ff14"/>
+<text x="600" y="1058" text-anchor="middle" fill="#39ff14" font-family="Arial,Helvetica,sans-serif" font-size="18" font-weight="700">ADVANCED CAPABILITY • MATURITY TARGET NOT YET REACHED</text>
+</svg>
