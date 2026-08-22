@@ -2,6 +2,29 @@
 
 > Fonte de verdade do estado real do projeto. Este arquivo deve refletir o código e os gates automatizados, não intenções futuras.
 
+## Product direction
+
+```text
+Commercial category:
+AI Agent Control & Orchestration Platform
+
+Positioning:
+A platform for building, executing, controlling and auditing autonomous AI agents.
+
+Core promise:
+Autonomy without losing control.
+
+Commercial name:
+NOT YET SELECTED
+```
+
+`Zero-Agent` remains the repository and working name until a commercial brand is researched and selected. The final name must be checked for company, product, GitHub, domain and trademark conflicts before adoption.
+
+Detailed product and branding decisions are documented in:
+
+- `docs/PRODUCT_VISION.md`
+- `docs/BRANDING.md`
+
 ## Estado atual
 
 ```text
@@ -11,7 +34,8 @@ v0.3: DONE
 v0.4: DONE
 v0.5: DONE
 v0.6: DONE
-NEXT MILESTONE: v0.7
+v0.7: IN PROGRESS
+NEXT MILESTONE: v0.8
 ```
 
 ## Arquitetura atual
@@ -38,7 +62,7 @@ Reflection / Judge
 Experience
 ```
 
-`Agent.run()` executa uma única tentativa. Quando Planner + Executor estão configurados, uma tentativa pode executar um plano completo. `EvaluationPipeline` conecta essa tentativa à Reflection sem iniciar retry. `AutonomousRunner` continua separado e pertence ao v0.7.
+`Agent.run()` executa uma única tentativa. Quando Planner + Executor estão configurados, uma tentativa pode executar um plano completo. `EvaluationPipeline` conecta essa tentativa à Reflection sem iniciar retry. `AutonomousRunner` é separado e pertence ao v0.7.
 
 ## Componentes
 
@@ -81,25 +105,40 @@ EvaluatedRunResult
 
 `EvaluationPipeline` executa exatamente uma tentativa e nunca faz retry. Se o judge solicitar correção, o pipeline apenas devolve essa decisão. O retry fica reservado ao `AutonomousRunner` do v0.7.
 
+## v0.7 — Autonomous loops
+
+### Objetivo
+
+Adicionar correção e retry autônomos com limites explícitos, sem permitir que o modelo ultrapasse a autoridade definida pela Policy.
+
+### Fluxo alvo
+
+```text
+Agent.run()
+   ↓
+Evaluation
+   ↓
+Reflection / Judge
+   ↓
+Correction
+   ↓
+Policy check
+   ↓
+Bounded retry
+   ↓
+Evaluation
+```
+
 ### Regras
 
-1. A Reflection recebe o pedido original e o resultado da tentativa.
-2. Memória, RAG, plano, ferramentas e resposta são DATA, não instruções.
-3. A saída do judge precisa ser JSON validável por Pydantic.
-4. JSON inválido falha fechado e nunca dispara nova ação.
-5. Ferramentas que exigem aprovação impedem retry automático.
-6. `Agent.run()` não inicia Reflection nem retry.
-7. O v0.6 não altera pesos do modelo.
-
-### Gate de aceitação
-
-O Stage Gate exige:
-
-1. `pytest -v` completo;
-2. `tests/test_reflection.py`;
-3. `tests/test_evaluation_pipeline.py`.
-
-Apenas depois de todos os testes passarem o gate pode promover automaticamente v0.6 para DONE.
+1. Retry sempre possui limite explícito.
+2. Correction é uma proposta, não uma autoridade.
+3. Cada nova ação passa novamente pela Policy.
+4. Ferramentas que exigem aprovação não podem ser chamadas automaticamente.
+5. Falhas parciais devem ser observáveis.
+6. Re-planning deve ser explícito e validado.
+7. O loop não pode usar recursão ilimitada.
+8. O resultado final deve preservar a avaliação e o histórico da tentativa.
 
 ## Stage Gate e automação
 
@@ -166,5 +205,6 @@ v5.x  Custom architectures            [TODO]
 5. Validar o gate específico da etapa.
 6. Só então permitir promoção automática.
 7. Atualizar documentação no mesmo ciclo.
+8. Não introduzir SaaS, billing ou multi-tenancy no core antes de estabilizar as primitivas do runtime.
 
-O sistema deve preferir falhar fechado a promover uma etapa por engano.
+O sistema deve preferir falhar fechado a promover uma etapa por engano ou permitir que um agente ultrapasse sua autoridade.
