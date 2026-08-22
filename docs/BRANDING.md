@@ -1,14 +1,17 @@
-# Branding Strategy
+# Alpha7 AI — Branding Strategy
 
-## Current state
+## Official product identity
 
-`Zero-Agent` remains the repository and working name.
+**Product:** Alpha7 AI  
+**Technical identity:** Alpha7 Agent  
+**Tagline:** **Autonomy without losing control.**  
+**Positioning:** **Autonomous Local AI**
 
-It is intentionally not being treated as the final commercial brand yet. The final name must be selected only after checking name conflicts, domains, GitHub usage, companies and relevant trademarks.
+Alpha7 is the product identity for the autonomous AI platform formerly developed under the working name Zero-Agent.
 
 ## Brand territory
 
-The brand should communicate four attributes:
+Alpha7 communicates four core attributes:
 
 ```text
 AUTONOMY
@@ -17,7 +20,7 @@ TRUST
 INTELLIGENCE
 ```
 
-The product should feel like AI infrastructure rather than a chatbot, prompt library, LLM wrapper or experimental framework.
+The product is positioned as AI infrastructure for autonomous software agents, not as a chatbot, prompt library, LLM wrapper or generic agent framework.
 
 ## Commercial message
 
@@ -25,47 +28,37 @@ The product should feel like AI infrastructure rather than a chatbot, prompt lib
 
 > A platform for building, executing, controlling and auditing autonomous AI agents.
 
-### Core tagline
+### Core promise
 
 > **Autonomy without losing control.**
 
 ### Short description
 
-> Build and operate autonomous AI agents with policies, memory, planning, tool execution, evaluation and auditability.
+> Alpha7 is a local-first autonomous AI platform with memory, RAG, planning, tool execution, evaluation, reflection, policy enforcement and controlled learning.
 
-## Naming criteria
+## Naming architecture
 
-The final name should:
+```text
+ALPHA7 AI
+   │
+   ├── Alpha7 Core
+   ├── Alpha7 Agent
+   ├── Alpha7 Memory
+   ├── Alpha7 RAG
+   ├── Alpha7 Tools
+   ├── Alpha7 SDK
+   ├── Alpha7 CLI
+   ├── Alpha7 Cloud
+   └── Alpha7 Enterprise
+```
 
-- work internationally;
-- be easy to pronounce in English and Spanish;
-- be distinctive enough to own as a brand;
-- work for enterprise software;
-- not depend on a specific model provider;
-- not force the product into the chatbot category;
-- support future products, SDKs and cloud services;
-- have a credible domain strategy;
-- have acceptable GitHub, company and trademark availability.
-
-## Naming process
-
-Candidate names must be evaluated against:
-
-1. Web/company conflicts.
-2. GitHub repository and organization usage.
-3. `.com` availability or a credible domain alternative.
-4. `.ai` availability where commercially useful.
-5. EU trademark databases.
-6. US trademark databases where relevant.
-7. Existing AI products with similar positioning.
-8. Pronunciation and spelling in English, Spanish and Portuguese.
-
-No candidate should become the official product name solely because it sounds good.
+This naming system allows the platform to expand without changing the core brand.
 
 ## Product language
 
 Prefer:
 
+- Autonomous AI
 - Agent Platform
 - Agent Runtime
 - Control Plane
@@ -76,27 +69,32 @@ Prefer:
 - Governance
 - Autonomous Systems
 
-Avoid positioning the product primarily as:
+Avoid positioning Alpha7 primarily as:
 
 - chatbot;
 - AI assistant;
 - prompt framework;
 - LLM wrapper;
-- autonomous AI that can do anything;
-- generic AI framework.
+- generic AI framework;
+- unrestricted autonomous AI.
 
-## Brand hierarchy target
+## Brand hierarchy
 
 ```text
 COMPANY
   │
-  └── PRODUCT BRAND
+  └── ALPHA7 AI
         │
-        ├── Cloud
-        ├── Enterprise
+        ├── Core
+        ├── Agent
         ├── SDK
         ├── CLI
-        └── API
+        ├── Cloud
+        └── Enterprise
 ```
 
-The repository name may remain `Zero-Agent` until the commercial brand has been validated.
+## Brand transition
+
+The previous technical name was **Zero-Agent**. The new official product identity is **Alpha7 AI**.
+
+Source code architecture remains unchanged unless a component-level rename is technically justified. The rebrand changes product identity and documentation without introducing unnecessary code churn.
