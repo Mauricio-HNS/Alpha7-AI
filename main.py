@@ -1,4 +1,4 @@
-"""Zero-Agent CLI."""
+"""Zero-Agent platform CLI."""
 from __future__ import annotations
 
 from app.agent import Agent
@@ -40,7 +40,8 @@ def main() -> None:
     setup_logging()
     agent = build_agent()
 
-    print("Zero-Agent v0.5")
+    print("Zero-Agent Platform v0.6")
+    print("Autonomy without losing control.")
     print(
         f"Modelo: {settings.ollama_model} | Embeddings: {settings.embedding_model} | "
         f"Ollama: {settings.ollama_base_url} | Max iterations: {settings.policy_max_iterations}"
